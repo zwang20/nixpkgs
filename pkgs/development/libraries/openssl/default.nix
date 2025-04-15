@@ -115,7 +115,7 @@ let
           armv7l-linux = "./Configure linux-armv4 -march=armv7-a";
           x86_64-darwin = "./Configure darwin64-x86_64-cc";
           aarch64-darwin = "./Configure darwin64-arm64-cc";
-          x86_64-linux = "./Configure linux-x86_64";
+          # x86_64-linux = "./Configure linux-x86_64";
           x86_64-solaris = "./Configure solaris64-x86_64-gcc";
           powerpc64-linux = "./Configure linux-ppc64";
           riscv32-linux = "./Configure ${
@@ -124,7 +124,11 @@ let
           riscv64-linux = "./Configure linux64-riscv64";
         }
         .${stdenv.hostPlatform.system} or (
-          if stdenv.hostPlatform == stdenv.buildPlatform then
+          if stdenv.hostPlatform.isX32 then
+            "./Configure linux-x32"
+          else if stdenv.hostPlatform.system == "x86_64-linux" then
+            "./Configure linux-x86_64"
+          else if stdenv.hostPlatform == stdenv.buildPlatform then
             "./config"
           else if stdenv.hostPlatform.isBSD then
             if stdenv.hostPlatform.isx86_64 then
@@ -140,7 +144,9 @@ let
               )
             }"
           else if stdenv.hostPlatform.isLinux then
-            if stdenv.hostPlatform.isx86_64 then
+            if stdenv.hostPlatform.isX32 then
+              "./Configure linux-x32"
+            else if stdenv.hostPlatform.isx86_64 then
               "./Configure linux-x86_64"
             else if stdenv.hostPlatform.isMicroBlaze then
               "./Configure linux-latomic"
