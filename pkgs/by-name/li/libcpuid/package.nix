@@ -16,6 +16,11 @@ stdenv.mkDerivation rec {
     hash = "sha256-/28yo1V4/xYMirt2bNTB/l9Xl8NgRmxTitOW21TY8gE=";
   };
 
+  # https://github.com/anrieff/libcpuid/pull/209
+  patches = lib.optionals stdenv.hostPlatform.isX32 [
+    ./exec_cpuid-x32.patch
+  ];
+
   nativeBuildInputs = [ autoreconfHook ];
 
   meta = with lib; {
