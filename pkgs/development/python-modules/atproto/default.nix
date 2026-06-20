@@ -2,7 +2,6 @@
   lib,
   fetchFromGitHub,
   buildPythonPackage,
-  pythonOlder,
   nix-update-script,
 
   # build-system
@@ -22,24 +21,22 @@
   # nativeCheckInputs
   pytestCheckHook,
   pytest-asyncio,
-  coverage,
 }:
 
 buildPythonPackage rec {
   pname = "atproto";
-  version = "0.0.59";
-  format = "pyproject";
-  disabled = pythonOlder "3.8";
+  version = "0.0.68";
+  pyproject = true;
 
   # use GitHub, pypi does not include tests
   src = fetchFromGitHub {
     owner = "MarshalX";
     repo = "atproto";
     tag = "v${version}";
-    hash = "sha256-Q+ZJMbchz3u7kXAR9fJpzJd6Zdc44LkntPmEE7IeW6A=";
+    hash = "sha256-z5/CLC2pxp2cFNZQsnQT96g8y2CFjNmiEatu8yEmYHw=";
   };
 
-  POETRY_DYNAMIC_VERSIONING_BYPASS = version;
+  env.POETRY_DYNAMIC_VERSIONING_BYPASS = version;
 
   build-system = [
     poetry-core
@@ -58,13 +55,13 @@ buildPythonPackage rec {
   ];
 
   pythonRelaxDeps = [
+    "cryptography"
     "websockets"
   ];
 
   nativeCheckInputs = [
     pytestCheckHook
     pytest-asyncio
-    coverage
   ];
 
   disabledTestPaths = [

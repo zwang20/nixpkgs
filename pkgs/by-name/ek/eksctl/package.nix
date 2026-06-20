@@ -1,22 +1,23 @@
 {
   lib,
+  stdenv,
   buildGoModule,
   fetchFromGitHub,
   installShellFiles,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "eksctl";
-  version = "0.207.0";
+  version = "0.226.0";
 
   src = fetchFromGitHub {
     owner = "weaveworks";
-    repo = pname;
-    rev = version;
-    hash = "sha256-USWeMzJ1k+sJx2p3FzFhbO48m61WUuCvp7Juwa9jtus=";
+    repo = "eksctl";
+    rev = finalAttrs.version;
+    hash = "sha256-XjiM4o4xJPY+ZFtvWi5K99tQaZwNxiCla/jUeQQo+5E=";
   };
 
-  vendorHash = "sha256-TEw5ts51M/nvcljqrCHIkTGk64dhhEamhkP/qS/y1uo=";
+  vendorHash = "sha256-HP0EdZeM2Nz6LI3EjVT7qPl47Suh45OjWptEHgqqvhg=";
 
   doCheck = false;
 
@@ -30,28 +31,29 @@ buildGoModule rec {
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/weaveworks/eksctl/pkg/version.gitCommit=${src.rev}"
+    "-X github.com/weaveworks/eksctl/pkg/version.gitCommit=${finalAttrs.src.rev}"
     "-X github.com/weaveworks/eksctl/pkg/version.buildDate=19700101-00:00:00"
   ];
 
   nativeBuildInputs = [ installShellFiles ];
 
-  postInstall = ''
+  postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
     installShellCompletion --cmd eksctl \
       --bash <($out/bin/eksctl completion bash) \
       --fish <($out/bin/eksctl completion fish) \
       --zsh  <($out/bin/eksctl completion zsh)
   '';
 
-  meta = with lib; {
+  meta = {
     description = "CLI for Amazon EKS";
     homepage = "https://github.com/weaveworks/eksctl";
-    changelog = "https://github.com/eksctl-io/eksctl/releases/tag/v${version}";
-    license = licenses.asl20;
-    maintainers = with maintainers; [
+    changelog = "https://github.com/eksctl-io/eksctl/releases/tag/v${finalAttrs.version}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [
       xrelkd
       Chili-Man
+      ryan4yin
     ];
     mainProgram = "eksctl";
   };
-}
+})

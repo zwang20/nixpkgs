@@ -3,6 +3,8 @@
   fetchgit,
   SDL,
   stdenv,
+  alsa-lib,
+  libGL,
   libogg,
   libvorbis,
   libmad,
@@ -21,6 +23,8 @@ stdenv.mkDerivation {
 
   buildInputs = [
     SDL
+    alsa-lib
+    libGL
     libogg
     libvorbis
     libmad
@@ -40,6 +44,8 @@ stdenv.mkDerivation {
         "h2patch"
     )
   '';
+
+  env.NIX_CFLAGS_COMPILE = "-std=gnu17";
 
   buildPhase = ''
     runHook preBuild
@@ -65,7 +71,7 @@ stdenv.mkDerivation {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  meta = {
     broken = stdenv.hostPlatform.isDarwin;
     description = "Cross-platform port of Hexen II game";
     longDescription = ''
@@ -75,8 +81,8 @@ stdenv.mkDerivation {
       support for many operating systems and architectures, and documentation among many others.
     '';
     homepage = "https://uhexen2.sourceforge.net/";
-    license = licenses.gpl2Plus;
-    maintainers = with maintainers; [ xdhampus ];
-    platforms = platforms.all;
+    license = lib.licenses.gpl2Plus;
+    maintainers = with lib.maintainers; [ xdhampus ];
+    platforms = lib.platforms.all;
   };
 }

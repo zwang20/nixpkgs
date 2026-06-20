@@ -2,36 +2,30 @@
   lib,
   stdenvNoCC,
   fetchFromGitHub,
-  fetchpatch,
   nix-update-script,
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "cosmic-wallpapers";
-  version = "1.0.0-alpha.6";
+  version = "1.0.16";
 
+  # nixpkgs-update: no auto update
   src = fetchFromGitHub {
     owner = "pop-os";
     repo = "cosmic-wallpapers";
     tag = "epoch-${finalAttrs.version}";
     forceFetchGit = true;
     fetchLFS = true;
-    hash = "sha256-Exrps3DicL/G/g0kbSsCvoFhiJn1k3v8I09GhW7EwNM=";
+    hash = "sha256-m2cYppfitpBDKK8CC9i/lUrC9rfSYTuqUSZSyIKKGyg=";
   };
-
-  patches = [
-    (fetchpatch {
-      url = "https://github.com/pop-os/cosmic-wallpapers/pull/2/commits/4d17ebe69335f8ffa80fd1c48baa7f3d3efa4dbe.patch";
-      hash = "sha256-4QRtX5dbN6C/ZKU3pvV7mTT7EDrMWvRCFB4004RMylM=";
-    })
-  ];
 
   makeFlags = [ "prefix=${placeholder "out"}" ];
 
+  __structuredAttrs = true;
+  strictDeps = true;
+
   passthru.updateScript = nix-update-script {
     extraArgs = [
-      "--version"
-      "unstable"
       "--version-regex"
       "epoch-(.*)"
     ];
@@ -52,10 +46,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       # round_moons_nasa.jpg: https://www.planetary.org/space-images/the-solar-systems-round-moons
       publicDomain
     ];
-    maintainers = with lib.maintainers; [
-      pandapip1
-      HeitorAugustoLN
-    ];
+    teams = [ lib.teams.cosmic ];
     platforms = lib.platforms.unix;
   };
 })

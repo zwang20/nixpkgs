@@ -2,31 +2,39 @@
   lib,
   stdenv,
   chromium,
-  nodejs,
-  fetchYarnDeps,
   fetchNpmDeps,
-  fixup-yarn-lock,
-  npmHooks,
-  yarn,
-  libnotify,
-  unzip,
-  pkgs,
+  fetchpatch,
+
   pkgsBuildHost,
-  pipewire,
-  libsecret,
-  libpulseaudio,
-  speechd-minimal,
-  info,
   gclient2nix,
+  nodejs,
+  npmHooks,
+  yarn-berry_4,
+  unzip,
+  writers,
+
+  libnotify,
+  libpulseaudio,
+  libsecret,
+  pipewire,
+  speechd-minimal,
+
+  info,
 }:
 
 let
   gclientDeps = gclient2nix.importGclientDeps info.deps;
+  yarn-berry = yarn-berry_4;
+
+  # Only apply to old versions after upstream updates to Yarn 4.14
+  # https://github.com/electron/electron/blob/main/package.json#L148
+  yarnPatch = ./yarn-4.14-support.patch;
 in
 
 ((chromium.override { upstream-info = info.chromium; }).mkDerivation (base: {
   packageName = "electron";
   inherit (info) version;
+
   buildTargets = [
     "electron:copy_node_headers"
     "electron:electron_dist_zip"
@@ -37,20 +45,20 @@ in
     "headers"
   ];
 
+  # don't automatically move the include directory from $headers back into $out
+  moveToDev = false;
+
   nativeBuildInputs = base.nativeBuildInputs ++ [
-    nodejs
-    yarn
-    fixup-yarn-lock
-    unzip
-    npmHooks.npmConfigHook
     gclient2nix.gclientUnpackHook
+    nodejs
+    npmHooks.npmConfigHook
+    yarn-berry
+    yarn-berry.yarnBerryConfigHook
+    unzip
   ];
+
   buildInputs = base.buildInputs ++ [ libnotify ];
 
-  electronOfflineCache = fetchYarnDeps {
-    yarnLock = gclientDeps."src/electron".path + "/yarn.lock";
-    sha256 = info.electron_yarn_hash;
-  };
   npmDeps = fetchNpmDeps rec {
     src = gclientDeps."src".path;
     # Assume that the fetcher always unpack the source,
@@ -58,114 +66,145 @@ in
     sourceRoot = "${src.name}/third_party/node";
     hash = info.chromium_npm_hash;
   };
+
+  npmRoot = "third_party/node";
+
+  missingHashes =
+    if (info.electron_yarn_data ? "missing_hashes") then
+      writers.writeJSON "missing-hashes.json" info.electron_yarn_data.missing_hashes
+    else
+      null;
+  yarnOfflineCache = yarn-berry.fetchYarnBerryDeps {
+    src = gclientDeps."src/electron".path;
+    patches = [ yarnPatch ];
+    hash = info.electron_yarn_data.hash;
+    missingHashes =
+      if (info.electron_yarn_data ? "missing_hashes") then
+        writers.writeJSON "missing-hashes.json" info.electron_yarn_data.missing_hashes
+      else
+        null;
+  };
+
+  dontYarnBerryInstallDeps = true; # we'll run the hook manually
+
   inherit gclientDeps;
   unpackPhase = null; # prevent chromium's unpackPhase from being used
   sourceRoot = "src";
 
-  env =
-    base.env
-    // {
-      # Hydra can fail to build electron due to clang spamming deprecation
-      # warnings mid-build, causing the build log to grow beyond the limit
-      # of 64mb and then getting killed by Hydra.
-      # For some reason, the log size limit appears to only be enforced on
-      # aarch64-linux. x86_64-linux happily succeeds to build with ~180mb. To
-      # unbreak the build on h.n.o, we simply disable those warnings for now.
-      # https://hydra.nixos.org/build/283952243
-      NIX_CFLAGS_COMPILE = base.env.NIX_CFLAGS_COMPILE + " -Wno-deprecated";
-    }
-    // lib.optionalAttrs (lib.versionAtLeast info.version "35") {
-      # Needed for header generation in electron 35 and above
-      ELECTRON_OUT_DIR = "Release";
-    };
+  env = base.env // {
+    # Hydra can fail to build electron due to clang spamming deprecation
+    # warnings mid-build, causing the build log to grow beyond the limit
+    # of 64mb and then getting killed by Hydra.
+    # For some reason, the log size limit appears to only be enforced on
+    # aarch64-linux. x86_64-linux happily succeeds to build with ~180mb. To
+    # unbreak the build on h.n.o, we simply disable those warnings for now.
+    # https://hydra.nixos.org/build/283952243
+    NIX_CFLAGS_COMPILE = base.env.NIX_CFLAGS_COMPILE + " -Wno-deprecated";
+    # Needed for header generation in electron 35 and above
+    ELECTRON_OUT_DIR = "Release";
+  };
 
   src = null;
 
-  patches = base.patches;
+  patches =
+    base.patches
+    ++ lib.optionals (lib.versions.major info.version == "40") [
+      ./40-angle-patchdir.patch
+    ];
 
-  npmRoot = "third_party/node";
+  postPatch = ''
+    mkdir -p third_party/jdk/current/bin
 
-  postPatch =
-    ''
-      mkdir -p third_party/jdk/current/bin
+    echo 'build_with_chromium = true' >> build/config/gclient_args.gni
+    echo 'checkout_google_benchmark = false' >> build/config/gclient_args.gni
+    echo 'checkout_android = false' >> build/config/gclient_args.gni
+    echo 'checkout_android_prebuilts_build_tools = false' >> build/config/gclient_args.gni
+    echo 'checkout_android_native_support = false' >> build/config/gclient_args.gni
+    echo 'checkout_ios_webkit = false' >> build/config/gclient_args.gni
+    echo 'checkout_nacl = false' >> build/config/gclient_args.gni
+    echo 'checkout_openxr = false' >> build/config/gclient_args.gni
+    echo 'checkout_rts_model = false' >> build/config/gclient_args.gni
+    echo 'checkout_src_internal = false' >> build/config/gclient_args.gni
+    echo 'cros_boards = ""' >> build/config/gclient_args.gni
+    echo 'cros_boards_with_qemu_images = ""' >> build/config/gclient_args.gni
+    echo 'generate_location_tags = true' >> build/config/gclient_args.gni
 
-      echo 'build_with_chromium = true' >> build/config/gclient_args.gni
-      echo 'checkout_google_benchmark = false' >> build/config/gclient_args.gni
-      echo 'checkout_android = false' >> build/config/gclient_args.gni
-      echo 'checkout_android_prebuilts_build_tools = false' >> build/config/gclient_args.gni
-      echo 'checkout_android_native_support = false' >> build/config/gclient_args.gni
-      echo 'checkout_ios_webkit = false' >> build/config/gclient_args.gni
-      echo 'checkout_nacl = false' >> build/config/gclient_args.gni
-      echo 'checkout_openxr = false' >> build/config/gclient_args.gni
-      echo 'checkout_rts_model = false' >> build/config/gclient_args.gni
-      echo 'checkout_src_internal = false' >> build/config/gclient_args.gni
-      echo 'cros_boards = ""' >> build/config/gclient_args.gni
-      echo 'cros_boards_with_qemu_images = ""' >> build/config/gclient_args.gni
-      echo 'generate_location_tags = true' >> build/config/gclient_args.gni
+    echo 'LASTCHANGE=${info.deps."src".args.tag}-refs/heads/master@{#0}' > build/util/LASTCHANGE
+    echo "$SOURCE_DATE_EPOCH" > build/util/LASTCHANGE.committime
 
-      echo 'LASTCHANGE=${info.deps."src".args.rev}-refs/heads/master@{#0}' > build/util/LASTCHANGE
-      echo "$SOURCE_DATE_EPOCH" > build/util/LASTCHANGE.committime
+    cat << EOF > gpu/config/gpu_lists_version.h
+    /* Generated by lastchange.py, do not edit.*/
+    #ifndef GPU_CONFIG_GPU_LISTS_VERSION_H_
+    #define GPU_CONFIG_GPU_LISTS_VERSION_H_
+    #define GPU_LISTS_VERSION "${info.deps."src".args.tag}"
+    #endif  // GPU_CONFIG_GPU_LISTS_VERSION_H_
+    EOF
 
-      cat << EOF > gpu/config/gpu_lists_version.h
-      /* Generated by lastchange.py, do not edit.*/
-      #ifndef GPU_CONFIG_GPU_LISTS_VERSION_H_
-      #define GPU_CONFIG_GPU_LISTS_VERSION_H_
-      #define GPU_LISTS_VERSION "${info.deps."src".args.rev}"
-      #endif  // GPU_CONFIG_GPU_LISTS_VERSION_H_
-      EOF
+    cat << EOF > skia/ext/skia_commit_hash.h
+    /* Generated by lastchange.py, do not edit.*/
+    #ifndef SKIA_EXT_SKIA_COMMIT_HASH_H_
+    #define SKIA_EXT_SKIA_COMMIT_HASH_H_
+    #define SKIA_COMMIT_HASH "${info.deps."src/third_party/skia".args.rev}-"
+    #endif  // SKIA_EXT_SKIA_COMMIT_HASH_H_
+    EOF
 
-      cat << EOF > skia/ext/skia_commit_hash.h
-      /* Generated by lastchange.py, do not edit.*/
-      #ifndef SKIA_EXT_SKIA_COMMIT_HASH_H_
-      #define SKIA_EXT_SKIA_COMMIT_HASH_H_
-      #define SKIA_COMMIT_HASH "${info.deps."src/third_party/skia".args.rev}-"
-      #endif  // SKIA_EXT_SKIA_COMMIT_HASH_H_
-      EOF
-
-      echo -n '${info.deps."src/third_party/dawn".args.rev}' > gpu/webgpu/DAWN_VERSION
-
-      (
-        cd electron
-        export HOME=$TMPDIR/fake_home
-        yarn config --offline set yarn-offline-mirror $electronOfflineCache
-        fixup-yarn-lock yarn.lock
-        yarn install --offline --frozen-lockfile --ignore-scripts --no-progress --non-interactive
-      )
-
-      (
-        cd ..
-        PATH=$PATH:${
-          lib.makeBinPath (
-            with pkgsBuildHost;
-            [
-              jq
-              git
-            ]
-          )
-        }
-        config=src/electron/patches/config.json
-        for entry in $(cat $config | jq -c ".[]")
+    echo -n '${info.deps."src/third_party/dawn".args.rev}' > gpu/webgpu/DAWN_VERSION
+    cat << EOF > gpu/webgpu/dawn_commit_hash.h
+    /* Generated by lastchange.py, do not edit.*/
+    #ifndef GPU_WEBGPU_DAWN_COMMIT_HASH_H_
+    #define GPU_WEBGPU_DAWN_COMMIT_HASH_H_
+    #define DAWN_COMMIT_HASH "${info.deps."src/third_party/dawn".args.rev}"
+    #endif  // GPU_WEBGPU_DAWN_COMMIT_HASH_H_
+    EOF
+    (
+      PATH=$PATH:${
+        lib.makeBinPath (
+          with pkgsBuildHost;
+          [
+            git
+          ]
+        )
+      }
+      cd electron
+      git apply ${yarnPatch}
+      YARN_ENABLE_SCRIPTS=0 yarnBerryConfigHook
+    )
+    (
+      cd ..
+      PATH=$PATH:${
+        lib.makeBinPath (
+          with pkgsBuildHost;
+          [
+            jq
+            git
+          ]
+        )
+      }
+      config=src/electron/patches/config.json
+      for entry in $(cat $config | jq -c ".[]")
+      do
+        patch_dir=$(echo $entry | jq -r ".patch_dir")
+        repo=$(echo $entry | jq -r ".repo")
+        for patch in $(cat $patch_dir/.patches)
         do
-          patch_dir=$(echo $entry | jq -r ".patch_dir")
-          repo=$(echo $entry | jq -r ".repo")
-          for patch in $(cat $patch_dir/.patches)
-          do
-            echo applying in $repo: $patch
-            git apply -p1 --directory=$repo --exclude='src/third_party/blink/web_tests/*' --exclude='src/content/test/data/*' $patch_dir/$patch
-          done
+          echo applying in $repo: $patch
+          git apply -p1 --directory=$repo --exclude='src/third_party/blink/web_tests/*' --exclude='src/content/test/data/*' $patch_dir/$patch
         done
-      )
-    ''
-    + base.postPatch;
+      done
+    )
+    echo 'checkout_glic_e2e_tests = false' >> build/config/gclient_args.gni
+    echo 'checkout_mutter = false' >> build/config/gclient_args.gni
+    echo 'checkout_clusterfuzz_data = false' >> build/config/gclient_args.gni
+  ''
+  + base.postPatch;
 
-  preConfigure =
-    ''
-      (
-        cd third_party/node
-        grep patch update_npm_deps | sh
-      )
-    ''
-    + (base.preConfigure or "");
+  preConfigure = ''
+    (
+      cd third_party/node
+      grep patch update_npm_deps | sh
+    )
+  ''
+  + (base.preConfigure or "");
 
   gnFlags = rec {
     # build/args/release.gn
@@ -200,7 +239,8 @@ in
     enable_dangling_raw_ptr_feature_flag = false;
     clang_unsafe_buffers_paths = "";
     enterprise_cloud_content_analysis = false;
-    content_enable_legacy_ipc = true;
+    enable_linux_installer = false;
+    enable_pdf_save_to_drive = false;
 
     # other
     enable_widevine = false;
@@ -213,11 +253,8 @@ in
     mkdir -p $libExecPath
     unzip -d $libExecPath out/Release/dist.zip
 
-    # Create reproducible tarball, per instructions at https://reproducible-builds.org/docs/archives/
-    tar --sort=name \
-      --mtime="@$SOURCE_DATE_EPOCH" \
-      --owner=0 --group=0 --numeric-owner \
-      -czf $headers -C out/Release/gen node_headers
+    mkdir -p $headers
+    cp -r out/Release/gen/node_headers/* $headers/
 
     runHook postInstall
   '';
@@ -246,19 +283,15 @@ in
     inherit info;
   };
 
-  meta = with lib; {
+  meta = {
     description = "Cross platform desktop application shell";
     homepage = "https://github.com/electron/electron";
     platforms = lib.platforms.linux;
-    license = licenses.mit;
-    maintainers = with maintainers; [
-      yayayayaka
-      teutat3s
-      tomasajt
-    ];
+    license = lib.licenses.mit;
+    teams = [ lib.teams.electron ];
     mainProgram = "electron";
     hydraPlatforms =
-      lib.optionals (!(hasInfix "alpha" info.version) && !(hasInfix "beta" info.version))
+      lib.optionals (!(lib.hasInfix "alpha" info.version) && !(lib.hasInfix "beta" info.version))
         [
           "aarch64-linux"
           "x86_64-linux"

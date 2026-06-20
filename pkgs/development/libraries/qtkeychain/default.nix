@@ -6,20 +6,18 @@
   pkg-config,
   qtbase,
   qttools,
-  CoreFoundation,
-  Security,
   libsecret,
 }:
 
 stdenv.mkDerivation rec {
   pname = "qtkeychain";
-  version = "0.15.0";
+  version = "0.16.0";
 
   src = fetchFromGitHub {
     owner = "frankosterfeld";
     repo = "qtkeychain";
     rev = version;
-    sha256 = "sha256-/gdozAJbjaaCcttQED2PixaFNRDZOXbBIoV9QLexNUg=";
+    sha256 = "sha256-jS/JNGWrrhelQ4FTzl08Yv2+U4bkziojrmTuqfj2HX4=";
   };
 
   dontWrapQtApps = true;
@@ -32,16 +30,10 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake ] ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [ pkg-config ] # for finding libsecret
   ;
 
-  buildInputs =
-    lib.optionals (!stdenv.hostPlatform.isDarwin) [ libsecret ]
-    ++ [
-      qtbase
-      qttools
-    ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      CoreFoundation
-      Security
-    ];
+  buildInputs = lib.optionals (!stdenv.hostPlatform.isDarwin) [ libsecret ] ++ [
+    qtbase
+    qttools
+  ];
 
   doInstallCheck = true;
 

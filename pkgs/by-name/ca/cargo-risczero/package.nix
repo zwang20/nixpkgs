@@ -29,7 +29,6 @@ rustPlatform.buildRustPackage rec {
     RECURSION_SRC_PATH = src-recursion;
   };
 
-  useFetchCargoVendor = true;
   cargoHash = "sha256-r2bs1MT2jBK4ATUKyRGLEAFCHNaGnnQ4jbQOKbQbldY=";
 
   nativeBuildInputs = [
@@ -50,6 +49,6 @@ rustPlatform.buildRustPackage rec {
     mainProgram = "cargo-risczero";
     homepage = "https://risczero.com";
     license = with lib.licenses; [ asl20 ];
-    maintainers = with lib.maintainers; [ cameronfyfe ];
+    maintainers = [ ];
   };
 }

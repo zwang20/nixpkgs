@@ -13,6 +13,20 @@
 let
   # Coerces a string to an int.
   coerceInt = val: if lib.isInt val then val else lib.toIntBase10 val;
+
+  coerceIntVersion = v: coerceInt (lib.versions.major (toString v));
+
+  # Parses a single version, substituting "latest" with the latest version.
+  parseVersion =
+    repo: key: version:
+    if version == "latest" then repo.latest.${key} else version;
+
+  # Parses a list of versions, substituting "latest" with the latest version.
+  parseVersions =
+    repo: key: versions:
+    lib.sort (a: b: lib.strings.compareVersions (toString a) (toString b) > 0) (
+      lib.unique (map (parseVersion repo key) versions)
+    );
 in
 {
   repoJson ? ./repo.json,
@@ -21,7 +35,7 @@ in
     # Reads the repo JSON. If repoXmls is provided, will build a repo JSON into the Nix store.
     if repoXmls != null then
       let
-        # Uses mkrepo.rb to create a repo spec.
+        # Uses update.rb to create a repo spec.
         mkRepoJson =
           {
             packages ? [ ],
@@ -33,6 +47,7 @@ in
               ruby.withPackages (
                 pkgs: with pkgs; [
                   slop
+                  curb
                   nokogiri
                 ]
               )
@@ -58,7 +73,7 @@ in
             preferLocalBuild = true;
             unpackPhase = "true";
             buildPhase = ''
-              ruby ${./mkrepo.rb} ${lib.escapeShellArgs mkRepoRubyArguments} > repo.json
+              env ruby -e 'load "${./update.rb}"' -- ${lib.escapeShellArgs mkRepoRubyArguments} --input /dev/null --output repo.json
             '';
             installPhase = ''
               mv repo.json $out
@@ -74,33 +89,52 @@ in
     else
       lib.importJSON repoJson
   ),
-  cmdLineToolsVersion ? repo.latest.cmdline-tools,
-  toolsVersion ? repo.latest.tools,
-  platformToolsVersion ? repo.latest.platform-tools,
-  buildToolsVersions ? [ repo.latest.build-tools ],
+  cmdLineToolsVersion ? "latest",
+  toolsVersion ? "latest",
+  platformToolsVersion ? "latest",
+  buildToolsVersions ? [ "latest" ],
   includeEmulator ? false,
-  emulatorVersion ? repo.latest.emulator,
+  emulatorVersion ? "latest",
   minPlatformVersion ? null,
-  maxPlatformVersion ? coerceInt repo.latest.platforms,
+  maxPlatformVersion ? "latest",
   numLatestPlatformVersions ? 1,
   platformVersions ?
     if minPlatformVersion != null && maxPlatformVersion != null then
+      # Range between min and max, inclusive.
       let
-        minPlatformVersionInt = coerceInt minPlatformVersion;
-        maxPlatformVersionInt = coerceInt maxPlatformVersion;
+        minPlatformVersion' = parseVersion repo "platforms" minPlatformVersion;
+        maxPlatformVersion' = parseVersion repo "platforms" maxPlatformVersion;
+        minPlatformVersionInt = coerceIntVersion minPlatformVersion';
+        maxPlatformVersionInt = coerceIntVersion maxPlatformVersion';
+        range = lib.range (lib.min minPlatformVersionInt maxPlatformVersionInt) (
+          lib.max minPlatformVersionInt maxPlatformVersionInt
+        );
       in
-      lib.range (lib.min minPlatformVersionInt maxPlatformVersionInt) (
-        lib.max minPlatformVersionInt maxPlatformVersionInt
-      )
+      # Don't use the actual latest version in lieu of the rounded version here,
+      # since when Google upgrades it would have the nasty side effect of being
+      # unstable and picking 35 -> 36 -> 37 instead of 35 -> 36.1 -> 37.
+      # Best to stay consistent.
+      #
+      # However, if only one platform is requested and it's the latest (which is the default),
+      # we should use it.
+      if lib.length range == 1 then lib.singleton maxPlatformVersion' else range
     else
+      # Use numLatestPlatformVersions with a lower cutoff of minPlatformVersion (defaulting to 1)
+      # to determine how many of the latest *major* versions we should pick.
       let
-        minPlatformVersionInt = if minPlatformVersion == null then 1 else coerceInt minPlatformVersion;
-        latestPlatformVersionInt = lib.max minPlatformVersionInt (coerceInt repo.latest.platforms);
+        minPlatformVersionInt =
+          if minPlatformVersion == null then
+            1
+          else
+            coerceIntVersion (parseVersion repo "platforms" minPlatformVersion);
+        latestPlatformVersionInt = lib.max minPlatformVersionInt (coerceIntVersion repo.latest.platforms);
         firstPlatformVersionInt = lib.max minPlatformVersionInt (
           latestPlatformVersionInt - (lib.max 1 numLatestPlatformVersions) + 1
         );
+        range = lib.range firstPlatformVersionInt latestPlatformVersionInt;
       in
-      lib.range firstPlatformVersionInt latestPlatformVersionInt,
+      # Ditto, see above.
+      if lib.length range == 1 then lib.singleton repo.latest.platforms else range,
   includeSources ? false,
   includeSystemImages ? false,
   systemImageTypes ? [
@@ -115,9 +149,9 @@ in
   ],
   # cmake has precompiles on x86_64 and Darwin platforms. Default to true there for compatibility.
   includeCmake ? stdenv.hostPlatform.isx86_64 || stdenv.hostPlatform.isDarwin,
-  cmakeVersions ? [ repo.latest.cmake ],
+  cmakeVersions ? [ "latest" ],
   includeNDK ? false,
-  ndkVersion ? repo.latest.ndk,
+  ndkVersion ? "latest",
   ndkVersions ? [ ndkVersion ],
   useGoogleAPIs ? false,
   useGoogleTVAddOns ? false,
@@ -126,6 +160,9 @@ in
 }:
 
 let
+  # Resolve all the platform versions.
+  platformVersions' = parseVersions repo "platforms" platformVersions;
+
   # Determine the Android os identifier from Nix's system identifier
   os =
     {
@@ -170,12 +207,21 @@ let
             map (
               archive:
               (fetchurl {
+                pname = packageInfo.name;
+                version = packageInfo.revision;
                 inherit (archive) url sha1;
-                preferLocalBuild = true;
+                inherit meta;
                 passthru = {
                   info = packageInfo;
                 };
-              })
+              }).overrideAttrs
+                (
+                  finalAttrs: previousAttrs: {
+                    # fetchurl prioritize `pname` and `version` over the specified `name`,
+                    # so specify custom `name` in an override.
+                    name = baseNameOf (lib.head (finalAttrs.urls));
+                  }
+                )
             ) validArchives
           )
         )
@@ -207,8 +253,11 @@ let
       # Converts things like 'extras;google;auto' to 'extras-google-auto'
       toVersionKey =
         name:
-        lib.optionalString (lib.match "^[0-9].*" name != null) "v"
-        + lib.concatStringsSep "_" (lib.splitVersion (lib.replaceStrings [ ";" ] [ "-" ] name));
+        let
+          normalizedName = lib.replaceStrings [ ";" "." ] [ "-" "_" ] name;
+          versionParts = lib.match "^([0-9][0-9\\.]*)(.*)$" normalizedName;
+        in
+        if versionParts == null then normalizedName else "v" + lib.concatStrings versionParts;
 
       recurse = lib.mapAttrs' (
         name: value:
@@ -228,16 +277,14 @@ let
   mkLicenseTexts =
     licenseNames:
     lib.lists.flatten (
-      builtins.map (
-        licenseName:
-        builtins.map (licenseText: "--- ${licenseName} ---\n${licenseText}") (mkLicenses licenseName)
+      map (
+        licenseName: map (licenseText: "--- ${licenseName} ---\n${licenseText}") (mkLicenses licenseName)
       ) licenseNames
     );
 
   # Converts a license name to a list of license hashes.
   mkLicenseHashes =
-    licenseName:
-    builtins.map (licenseText: builtins.hashString "sha1" licenseText) (mkLicenses licenseName);
+    licenseName: map (licenseText: builtins.hashString "sha1" licenseText) (mkLicenses licenseName);
 
   # The list of all license names we're accepting. Put android-sdk-license there
   # by default.
@@ -248,18 +295,35 @@ let
     ++ extraLicenses
   );
 
-  # put a much nicer error message that includes the available options.
-  check-version =
+  # Returns true if the given version exists.
+  hasVersion =
     packages: package: version:
-    if lib.hasAttrByPath [ package version ] packages then
-      packages.${package}.${version}
-    else
+    lib.hasAttrByPath [ package (toString version) ] packages
+    || lib.hasAttrByPath [ package "${(toString version)}.0" ] packages;
+
+  # Displays a nice error message that includes the available options if a version doesn't exist.
+  # Note that allPackages can be a list of package sets, or a single package set. Pass a list if
+  # you want to prioritize elements to the left (e.g. for passing a platform major version).
+  checkVersion =
+    allPackages: package: version:
+    let
+      # Convert the package sets to a list.
+      allPackages' = if lib.isList allPackages then allPackages else lib.singleton allPackages;
+
+      # Pick the first package set where we have the version.
+      packageSet = lib.findFirst (packages: hasVersion packages package version) null allPackages';
+    in
+    if packageSet == null then
       throw ''
-        The version ${version} is missing in package ${package}.
+        The version ${toString version} is missing in package ${package}.
         The only available versions are ${
-          builtins.concatStringsSep ", " (builtins.attrNames packages.${package})
+          lib.concatStringsSep ", " (
+            lib.attrNames (lib.foldl (s: x: s // (x.${package} or { })) { } allPackages')
+          )
         }.
-      '';
+      ''
+    else
+      packageSet.${package}.${toString version} or packageSet.${package}."${toString version}.0";
 
   # Returns true if we should link the specified plugins.
   shouldLink =
@@ -406,7 +470,9 @@ lib.recurseIntoAttrs rec {
       arch
       meta
       ;
-    package = check-version allArchives.packages "platform-tools" platformToolsVersion;
+    package = checkVersion allArchives.packages "platform-tools" (
+      parseVersion repo "platform-tools" platformToolsVersion
+    );
   };
 
   tools = callPackage ./tools.nix {
@@ -416,7 +482,7 @@ lib.recurseIntoAttrs rec {
       arch
       meta
       ;
-    package = check-version allArchives.packages "tools" toolsVersion;
+    package = checkVersion allArchives.packages "tools" (parseVersion repo "tools" toolsVersion);
 
     postInstall = ''
       ${linkPlugin {
@@ -440,7 +506,7 @@ lib.recurseIntoAttrs rec {
         arch
         meta
         ;
-      package = check-version allArchives.packages "build-tools" version;
+      package = checkVersion allArchives.packages "build-tools" version;
 
       postInstall = ''
         ${linkPlugin {
@@ -450,7 +516,7 @@ lib.recurseIntoAttrs rec {
         }}
       '';
     }
-  ) buildToolsVersions;
+  ) (parseVersions repo "build-tools" buildToolsVersions);
 
   emulator = callPackage ./emulator.nix {
     inherit
@@ -459,7 +525,9 @@ lib.recurseIntoAttrs rec {
       arch
       meta
       ;
-    package = check-version allArchives.packages "emulator" emulatorVersion;
+    package = checkVersion allArchives.packages "emulator" (
+      parseVersion repo "emulator" emulatorVersion
+    );
 
     postInstall = ''
       ${linkSystemImages {
@@ -469,21 +537,35 @@ lib.recurseIntoAttrs rec {
     '';
   };
 
-  inherit platformVersions;
+  # This is a list of the chosen API levels, as integers.
+  platformVersions = platformVersions';
 
   platforms = map (
     version:
     deployAndroidPackage {
-      package = check-version allArchives.packages "platforms" (toString version);
+      package = checkVersion allArchives.packages "platforms" version;
     }
-  ) platformVersions;
+  ) platformVersions';
 
-  sources = map (
-    version:
-    deployAndroidPackage {
-      package = check-version allArchives.packages "sources" (toString version);
-    }
-  ) platformVersions;
+  # Google is not including sources for API 37+. If the user requests them, don't fail.
+  sources = lib.filter (source: source != null) (
+    map (
+      version:
+      let
+        package =
+          let
+            version' = builtins.tryEval (checkVersion allArchives.packages "sources" version);
+          in
+          if version'.success then version'.value else null;
+      in
+      if package == null then
+        null
+      else
+        deployAndroidPackage {
+          inherit package;
+        }
+    ) platformVersions'
+  );
 
   system-images = lib.flatten (
     map (
@@ -507,7 +589,7 @@ lib.recurseIntoAttrs rec {
                 ) abiVersions
               );
 
-          instructions = builtins.listToAttrs (
+          instructions = lib.listToAttrs (
             map (package: {
               name = package.name;
               value = lib.optionalString (lib.hasPrefix "google_apis" type) ''
@@ -524,7 +606,7 @@ lib.recurseIntoAttrs rec {
           patchesInstructions = instructions;
         })
       ) systemImageTypes
-    ) platformVersions
+    ) platformVersions'
   );
 
   cmake = map (
@@ -536,9 +618,9 @@ lib.recurseIntoAttrs rec {
         arch
         meta
         ;
-      package = check-version allArchives.packages "cmake" version;
+      package = checkVersion allArchives.packages "cmake" version;
     }
-  ) cmakeVersions;
+  ) (parseVersions repo "cmake" cmakeVersions);
 
   # All NDK bundles.
   ndk-bundles =
@@ -562,67 +644,65 @@ lib.recurseIntoAttrs rec {
         version:
         let
           package = makeNdkBundle (
-            allArchives.packages.ndk-bundle.${ndkVersion} or allArchives.packages.ndk.${ndkVersion}
+            allArchives.packages.ndk-bundle.${version} or allArchives.packages.ndk.${version}
           );
         in
         lib.optional (shouldLink includeNDK [ package ]) package
-      ) ndkVersions
+      ) (parseVersions repo "ndk" ndkVersions)
     );
 
   # The "default" NDK bundle.
   ndk-bundle = if ndk-bundles == [ ] then null else lib.head ndk-bundles;
 
-  # Makes a Google API bundle.
-  google-apis =
-    map
-      (
-        version:
-        deployAndroidPackage {
-          package = (check-version allArchives "addons" (toString version)).google_apis;
-        }
-      )
-      (
-        builtins.filter (platformVersion: lib.versionOlder (toString platformVersion) "26") platformVersions
-      ); # API level 26 and higher include Google APIs by default
+  # Makes a Google API bundle from supported versions.
+  google-apis = map (
+    version:
+    deployAndroidPackage {
+      package = (checkVersion allArchives "addons" version).google_apis;
+    }
+  ) (lib.filter (hasVersion allArchives "addons") platformVersions');
 
+  # Makes a Google TV addons bundle from supported versions.
   google-tv-addons = map (
     version:
     deployAndroidPackage {
-      package = (check-version allArchives "addons" (toString version)).google_tv_addon;
+      package = (checkVersion allArchives "addons" version).google_tv_addon;
     }
-  ) platformVersions;
+  ) (lib.filter (hasVersion allArchives "addons") platformVersions');
 
-  cmdline-tools-package = check-version allArchives.packages "cmdline-tools" cmdLineToolsVersion;
+  cmdline-tools-package = checkVersion allArchives.packages "cmdline-tools" (
+    parseVersion repo "cmdline-tools" cmdLineToolsVersion
+  );
 
   # This derivation deploys the tools package and symlinks all the desired
   # plugins that we want to use. If the license isn't accepted, prints all the licenses
   # requested and throws.
-  androidsdk =
-    if !licenseAccepted then
-      throw ''
-        ${builtins.concatStringsSep "\n\n" (mkLicenseTexts licenseNames)}
+  androidsdk = callPackage ./cmdline-tools.nix {
+    inherit
+      deployAndroidPackage
+      os
+      arch
+      meta
+      ;
 
-        You must accept the following licenses:
-        ${lib.concatMapStringsSep "\n" (str: "  - ${str}") licenseNames}
+    package = cmdline-tools-package;
 
-        a)
-          by setting nixpkgs config option 'android_sdk.accept_license = true;'.
-        b)
-          by an environment variable for a single invocation of the nix tools.
-            $ export NIXPKGS_ACCEPT_ANDROID_SDK_LICENSE=1
-      ''
-    else
-      callPackage ./cmdline-tools.nix {
-        inherit
-          deployAndroidPackage
-          os
-          arch
-          meta
-          ;
+    postInstall =
+      if !licenseAccepted then
+        throw ''
+          ${builtins.concatStringsSep "\n\n" (mkLicenseTexts licenseNames)}
 
-        package = cmdline-tools-package;
+          You must accept the following licenses:
+          ${lib.concatMapStringsSep "\n" (str: "  - ${str}") licenseNames}
 
-        postInstall = ''
+          a)
+            by setting nixpkgs config option 'android_sdk.accept_license = true;'.
+          b)
+            by an environment variable for a single invocation of the nix tools.
+              $ export NIXPKGS_ACCEPT_ANDROID_SDK_LICENSE=1
+        ''
+      else
+        ''
           # Symlink all requested plugins
           ${linkPlugin {
             name = "platform-tools";
@@ -718,7 +798,7 @@ lib.recurseIntoAttrs rec {
             done
           ''}
 
-          find $ANDROID_SDK_ROOT/${cmdline-tools-package.path}/bin -type f -executable | while read i; do
+          find "$ANDROID_HOME/${cmdline-tools-package.path}/bin" -type f -executable | while read i; do
               ln -s $i $out/bin
           done
 
@@ -735,5 +815,5 @@ lib.recurseIntoAttrs rec {
             ''
           ) licenseNames}
         '';
-      };
+  };
 }

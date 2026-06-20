@@ -29,9 +29,9 @@ stdenv.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "A C++17-like string_view for C++98, C++11 and later in a single-file header-only library";
+    description = "C++17-like string_view for C++98, C++11 and later in a single-file header-only library";
     homepage = "https://github.com/martinmoene/string-view-lite";
-    changelog = "https://github.com/martinmoene/string-view-lite/blob/v${finalAttrs.version}/CHANGES.txt";
+    changelog = "https://github.com/martinmoene/string-view-lite/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.boost;
     maintainers = with lib.maintainers; [ titaniumtown ];
   };

@@ -37,14 +37,14 @@
   versionCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "coiled";
-  version = "1.90.4";
+  version = "1.134.1";
   pyproject = true;
 
   src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-wICWij2mdXlV3aYNeK+vITicEKbiuaO2PcZE+h9QDBo=";
+    inherit (finalAttrs) pname version;
+    hash = "sha256-uGXgj2QZOMik9ZJD8wMppJKsJPXdI0ipPuxwB5pHZos=";
   };
 
   build-system = [
@@ -84,13 +84,12 @@ buildPythonPackage rec {
   nativeCheckInputs = [
     versionCheckHook
   ];
-  versionCheckProgramArg = "--version";
 
   meta = {
     description = "Python client for coiled.io dask clusters";
     homepage = "https://www.coiled.io/";
-    license = lib.licenses.bsd3;
+    license = lib.licenses.elastic20;
     maintainers = with lib.maintainers; [ daspk04 ];
     mainProgram = "coiled";
   };
-}
+})

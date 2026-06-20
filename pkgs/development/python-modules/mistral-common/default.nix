@@ -1,59 +1,131 @@
 {
   lib,
   buildPythonPackage,
-  fetchPypi,
-  poetry-core,
-  numpy,
-  pydantic,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+
+  # dependencies
   jsonschema,
-  opencv-python-headless,
-  sentencepiece,
-  typing-extensions,
-  tiktoken,
+  numpy,
   pillow,
+  pydantic,
+  pydantic-extra-types,
   requests,
+  tiktoken,
+  typing-extensions,
+
+  # optional-dependencies
+  click,
+  fastapi,
+  huggingface-hub,
+  jinja2,
+  llguidance,
+  opencv-python-headless,
+  pydantic-settings,
+  pytestCheckHook,
+  sentencepiece,
+  soundfile,
+  soxr,
+  uvloop,
+
+  # tests
+  openai,
+  pycountry,
+  uvicorn,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "mistral-common";
-  version = "1.5.2";
+  version = "1.11.3";
   pyproject = true;
 
-  src = fetchPypi {
-    pname = "mistral_common";
-    inherit version;
-    hash = "sha256-nRFXsTdsSdNav8dD2+AITyyjezpavQPnQSdqG8ZshS8=";
+  src = fetchFromGitHub {
+    owner = "mistralai";
+    repo = "mistral-common";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-9NeJqv7m7vT/lI6mV9QbAsrLUcxO4Wr+QgKfz6RWtsM=";
   };
 
-  # relax dependencies
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace-fail 'pillow = "^10.3.0"' 'pillow = ">=10.3.0"' \
-      --replace-fail 'tiktoken = "^0.7.0"' 'tiktoken = ">=0.7.0"' \
-  '';
-
-  build-system = [ poetry-core ];
-
-  dependencies = [
-    numpy
-    pydantic
-    jsonschema
-    opencv-python-headless
-    sentencepiece
-    typing-extensions
-    tiktoken
-    pillow
-    requests
+  build-system = [
+    setuptools
   ];
 
-  doCheck = true;
+  dependencies = [
+    jsonschema
+    numpy
+    pillow
+    pydantic
+    pydantic-extra-types
+    requests
+    tiktoken
+    typing-extensions
+  ];
+
+  optional-dependencies =
+    let
+      self = finalAttrs.finalPackage.optional-dependencies;
+    in
+    {
+      opencv = [
+        opencv-python-headless
+      ];
+      sentencepiece = [
+        sentencepiece
+      ];
+      soundfile = [
+        soundfile
+      ];
+      soxr = [
+        soxr
+      ];
+      audio = self.soundfile ++ self.soxr;
+      image = self.opencv;
+      guidance = [
+        jinja2
+        llguidance
+      ];
+      hf-hub = [
+        huggingface-hub
+      ];
+      server = [
+        click
+        fastapi
+        pydantic-settings
+        uvloop
+      ]
+      ++ fastapi.optional-dependencies.standard;
+      all =
+        self.opencv
+        ++ self.sentencepiece
+        ++ self.audio
+        ++ self.image
+        ++ self.guidance
+        ++ self.hf-hub
+        ++ self.server;
+    };
 
   pythonImportsCheck = [ "mistral_common" ];
 
-  meta = with lib; {
-    description = "mistral-common is a set of tools to help you work with Mistral models.";
+  nativeCheckInputs = [
+    openai
+    pycountry
+    pytestCheckHook
+    uvicorn
+  ]
+  ++ finalAttrs.finalPackage.optional-dependencies.all;
+
+  disabledTests = [
+    # AssertionError, Extra items in the right set
+    "test_openai_chat_fields"
+  ];
+
+  meta = {
+    description = "Tools to help you work with Mistral models";
     homepage = "https://github.com/mistralai/mistral-common";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ bgamari ];
+    changelog = "https://github.com/mistralai/mistral-common/releases/tag/v${finalAttrs.version}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ bgamari ];
   };
-}
+})

@@ -3,36 +3,43 @@
   buildGoModule,
   fetchFromGitHub,
   installShellFiles,
-  testers,
-  supabase-cli,
+  versionCheckHook,
   nix-update-script,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "supabase-cli";
-  version = "2.20.5";
+  version = "2.105.0";
+
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "supabase";
     repo = "cli";
-    rev = "v${version}";
-    hash = "sha256-350b+79Jmrk8wsVQdE3gRAP3JZbgAtL1Cw46sOCyaok=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-L56P2ao1N+M9+b76E4gjHfRVGU2JBKE31VxVaDeQk5E=";
   };
 
-  vendorHash = "sha256-7AilsV/TBvY/n1gR5SSc6+d68n0rhclo5hqDTC/VrkY=";
+  # Supabase is in the process of porting the CLI to TS, for now we continue with the Go cli.
+  sourceRoot = "${finalAttrs.src.name}/apps/cli-go";
+
+  vendorHash = "sha256-1uzkvu1EcIk3+AVnv3GVCQLUPhCKNPvyFIstJvswET0=";
 
   ldflags = [
     "-s"
-    "-w"
-    "-X=github.com/supabase/cli/internal/utils.Version=${version}"
+    "-X=github.com/supabase/cli/internal/utils.Version=${finalAttrs.version}"
   ];
 
-  doCheck = false; # tests are trying to connect to localhost
+  subPackages = [ "." ];
 
   nativeBuildInputs = [ installShellFiles ];
 
+  doCheck = false; # Root Go package does not have any tests.
+
+  nativeInstallCheckInputs = [ versionCheckHook ];
+  doInstallCheck = true;
+
   postInstall = ''
-    rm $out/bin/{docs,listdep}
     mv $out/bin/{cli,supabase}
 
     installShellCompletion --cmd supabase \
@@ -41,21 +48,21 @@ buildGoModule rec {
       --zsh <($out/bin/supabase completion zsh)
   '';
 
-  passthru = {
-    tests.version = testers.testVersion {
-      package = supabase-cli;
-    };
-    updateScript = nix-update-script { };
+  passthru.updateScript = nix-update-script {
+    # Fetch versions from GitHub releases to detect pre-releases and
+    # avoid updating to them.
+    extraArgs = [ "--use-github-releases" ];
   };
 
-  meta = with lib; {
+  meta = {
     description = "CLI for interacting with supabase";
     homepage = "https://github.com/supabase/cli";
-    license = licenses.mit;
-    maintainers = with maintainers; [
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [
       gerschtli
       kashw2
+      yuannan
     ];
     mainProgram = "supabase";
   };
-}
+})

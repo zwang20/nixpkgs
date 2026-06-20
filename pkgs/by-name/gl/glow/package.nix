@@ -4,27 +4,28 @@
   fetchFromGitHub,
   installShellFiles,
   stdenv,
+  nix-update-script,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "glow";
-  version = "2.1.0";
+  version = "2.1.2";
 
   src = fetchFromGitHub {
     owner = "charmbracelet";
     repo = "glow";
-    rev = "v${version}";
-    hash = "sha256-pYXzm6HEqxJRPDdiUb+yij3iA2FhFYZOdRvQ69grcuU=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-8E3hDbZlROMPn6F2jx1KMavlBUsCnrpGdJeEaYt5bcU=";
   };
 
-  vendorHash = "sha256-lnD3SdPqZO+xfsR5YhvIAr9Gy1sA1LXi4SP/d/Rv/6g=";
+  vendorHash = "sha256-o5Z2ABRw6v4wFXp+KxgdKQn5/Lk5LG73VTiDOA/kBIs=";
 
   nativeBuildInputs = [ installShellFiles ];
 
   ldflags = [
     "-s"
     "-w"
-    "-X=main.Version=${version}"
+    "-X=main.Version=${finalAttrs.version}"
   ];
 
   doCheck = false;
@@ -36,15 +37,14 @@ buildGoModule rec {
       --zsh <($out/bin/glow completion zsh)
   '';
 
-  meta = with lib; {
-    description = "Render markdown on the CLI, with pizzazz!";
+  passthru.updateScript = nix-update-script { };
+
+  meta = {
+    description = "Render markdown on the CLI, with pizzazz";
     homepage = "https://github.com/charmbracelet/glow";
-    changelog = "https://github.com/charmbracelet/glow/releases/tag/v${version}";
-    license = licenses.mit;
-    maintainers = with maintainers; [
-      Br1ght0ne
-      penguwin
-    ];
+    changelog = "https://github.com/charmbracelet/glow/releases/tag/v${finalAttrs.version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ higherorderlogic ];
     mainProgram = "glow";
   };
-}
+})

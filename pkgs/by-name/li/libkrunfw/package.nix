@@ -10,28 +10,35 @@
   perl,
   elfutils,
   python3,
-  sevVariant ? false,
+  variant ? null,
 }:
 
+assert lib.elem variant [
+  null
+  "sev"
+  "tdx"
+];
+
+let
+  kernelSrc = fetchurl {
+    url = "mirror://kernel/linux/kernel/v6.x/linux-6.12.91.tar.xz";
+    hash = "sha256-D/KrnhafnxlIVXRx+7RQ0wGPjFt3yvKI4aOYJYJZeWk=";
+  };
+in
 stdenv.mkDerivation (finalAttrs: {
-  pname = "libkrunfw";
-  version = "4.5.1";
+  pname = "libkrunfw" + lib.optionalString (variant != null) "-${variant}";
+  version = "5.5.0";
 
   src = fetchFromGitHub {
-    owner = "containers";
+    owner = "libkrun";
     repo = "libkrunfw";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-GFfBiGMOyBwMKjpD1kj3vRpvjR0ydji3QNDyoOQoQsw=";
-  };
-
-  kernelSrc = fetchurl {
-    url = "mirror://kernel/linux/kernel/v6.x/linux-6.6.59.tar.xz";
-    hash = "sha256-I2FoCNjAjxKBX/iY9O20wROXorKEPQKe5iRS0hgzp20=";
+    hash = "sha256-MF1oDqhS4xqyQJIntl4DBfDBvuqCxQn9Zdws82Tn5Gg=";
   };
 
   postPatch = ''
     substituteInPlace Makefile \
-      --replace 'curl $(KERNEL_REMOTE) -o $(KERNEL_TARBALL)' 'ln -s $(kernelSrc) $(KERNEL_TARBALL)'
+      --replace-fail 'curl $(KERNEL_REMOTE) -o $(KERNEL_TARBALL)' 'ln -s ${kernelSrc} $(KERNEL_TARBALL)'
   '';
 
   nativeBuildInputs = [
@@ -48,30 +55,41 @@ stdenv.mkDerivation (finalAttrs: {
     elfutils
   ];
 
-  makeFlags =
-    [
-      "PREFIX=${placeholder "out"}"
-    ]
-    ++ lib.optionals sevVariant [
-      "SEV=1"
-    ];
+  makeFlags = [
+    "PREFIX=${placeholder "out"}"
+  ]
+  ++ lib.optionals (variant == "sev") [
+    "SEV=1"
+  ]
+  ++ lib.optionals (variant == "tdx") [
+    "TDX=1"
+  ];
 
   # Fixes https://github.com/containers/libkrunfw/issues/55
-  NIX_CFLAGS_COMPILE = lib.optionalString stdenv.targetPlatform.isAarch64 "-march=armv8-a+crypto";
+  env = lib.optionalAttrs stdenv.targetPlatform.isAarch64 {
+    NIX_CFLAGS_COMPILE = "-march=armv8-a+crypto";
+  };
 
   enableParallelBuilding = true;
 
-  meta = with lib; {
+  meta = {
     description = "Dynamic library bundling the guest payload consumed by libkrun";
-    homepage = "https://github.com/containers/libkrunfw";
-    license = with licenses; [
+    homepage = "https://github.com/libkrun/libkrunfw";
+    license = with lib.licenses; [
       lgpl2Only
       lgpl21Only
     ];
-    maintainers = with maintainers; [
+    maintainers = with lib.maintainers; [
       nickcao
       RossComputerGuy
+      nrabulinski
     ];
-    platforms = [ "x86_64-linux" ] ++ lib.optionals (!sevVariant) [ "aarch64-linux" ];
+    platforms = [
+      "x86_64-linux"
+    ]
+    ++ lib.optionals (variant == null) [
+      "aarch64-linux"
+      "riscv64-linux"
+    ];
   };
 })

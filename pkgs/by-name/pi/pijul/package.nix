@@ -5,46 +5,40 @@
   rustPlatform,
   installShellFiles,
   pkg-config,
+  dbus,
   libsodium,
   openssl,
-  xxHash,
-  darwin,
+  xxhash,
   gitImportSupport ? true,
   libgit2 ? null,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
+  __structuredAttrs = true;
+
   pname = "pijul";
-  version = "1.0.0-beta.9";
+  version = "1.0.0-beta.14";
 
   src = fetchCrate {
-    inherit version pname;
-    hash = "sha256-jy0mzgLw9iWuoWe2ictMTL3cHnjJ5kzs6TAK+pdm28g=";
+    inherit (finalAttrs) version pname;
+    hash = "sha256-Ex8fCIcif2lmZ3ytLARwgGzEeq6GB2NDvwd96niDKbQ=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-d2IlBtR3j6SF8AAagUQftCOqTqN70rDMlHkA9byxXyk=";
+  cargoHash = "sha256-yPzDzfD+QdhAXdyvzDV1z9HDe1mwF9cRCsliejr8H88=";
 
+  # Tests require a TTY, which the Nix sandbox does not provide.
   doCheck = false;
   nativeBuildInputs = [
     installShellFiles
     pkg-config
   ];
-  buildInputs =
-    [
-      openssl
-      libsodium
-      xxHash
-    ]
-    ++ (lib.optionals gitImportSupport [ libgit2 ])
-    ++ (lib.optionals stdenv.hostPlatform.isDarwin (
-      with darwin.apple_sdk.frameworks;
-      [
-        CoreServices
-        Security
-        SystemConfiguration
-      ]
-    ));
+  buildInputs = [
+    dbus
+    openssl
+    libsodium
+    xxhash
+  ]
+  ++ (lib.optionals gitImportSupport [ libgit2 ]);
 
   buildFeatures = lib.optional gitImportSupport "git";
 
@@ -55,15 +49,15 @@ rustPlatform.buildRustPackage rec {
       --zsh <($out/bin/pijul completion zsh)
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Distributed version control system";
     homepage = "https://pijul.org";
-    license = with licenses; [ gpl2Plus ];
-    maintainers = with maintainers; [
+    license = with lib.licenses; [ gpl2Plus ];
+    maintainers = with lib.maintainers; [
       gal_bolle
       dywedir
       fabianhjr
     ];
     mainProgram = "pijul";
   };
-}
+})

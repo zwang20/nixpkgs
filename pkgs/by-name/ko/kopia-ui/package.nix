@@ -10,12 +10,12 @@
   kopia,
 }:
 let
-  version = "0.19.0";
+  version = "0.23.0";
   src = fetchFromGitHub {
     owner = "kopia";
     repo = "kopia";
     tag = "v${version}";
-    hash = "sha256-PfxMs9MwoI+4z8vZ1sVlIEal3TOmA06997jWwShNfrE=";
+    hash = "sha256-9xvgm+A8h2pAX3oHtiFSa2xNab5BDkEBEtXQZz3Fd5A=";
   };
 in
 buildNpmPackage {
@@ -24,7 +24,7 @@ buildNpmPackage {
 
   sourceRoot = "${src.name}/app";
 
-  npmDepsHash = "sha256-3K5dwAQeAo98rz2gxGw3k/D+VkDJNe5pmAyEo4boetU=";
+  npmDepsHash = "sha256-Ctp41vNZPVbycwIzWiTh+1ej3NpCf1WJCqnJsyoyxlc=";
   makeCacheWritable = true;
 
   nativeBuildInputs = [
@@ -73,7 +73,7 @@ buildNpmPackage {
       type = "Application";
       desktopName = "KopiaUI";
       comment = "Fast and secure open source backup.";
-      icon = "kopia-ui";
+      icon = "kopia";
       exec = "kopia-ui";
       categories = [ "Utility" ];
     })
@@ -88,7 +88,7 @@ buildNpmPackage {
     downloadPage = "https://github.com/kopia/kopia";
     changelog = "https://github.com/kopia/kopia/releases/tag/v${version}";
     license = lib.licenses.asl20;
-    maintainers = with lib.maintainers; [ blenderfreaky ];
+    maintainers = with lib.maintainers; [ kilyanni ];
     platforms = lib.platforms.linux;
   };
 }

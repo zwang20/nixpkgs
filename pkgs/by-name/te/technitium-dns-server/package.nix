@@ -4,23 +4,24 @@
   fetchFromGitHub,
   dotnetCorePackages,
   technitium-dns-server-library,
+  libmsquic,
   nixosTests,
   nix-update-script,
 }:
 buildDotnetModule rec {
   pname = "technitium-dns-server";
-  version = "13.2";
+  version = "15.2.0";
 
   src = fetchFromGitHub {
     owner = "TechnitiumSoftware";
     repo = "DnsServer";
     tag = "v${version}";
-    hash = "sha256-oxLMBs+XkzvlfSst6ZD56ZIgiXwm0Px8Tn3Trdd/6H8=";
+    hash = "sha256-464jhswTOJnQnxetl9hH5U3aDP0RXzJTicot9nWzpAo=";
     name = "${pname}-${version}";
   };
 
-  dotnet-sdk = dotnetCorePackages.sdk_8_0;
-  dotnet-runtime = dotnetCorePackages.aspnetcore_8_0;
+  dotnet-sdk = dotnetCorePackages.sdk_10_0;
+  dotnet-runtime = dotnetCorePackages.aspnetcore_10_0;
 
   nugetDeps = ./nuget-deps.json;
 
@@ -36,6 +37,16 @@ buildDotnetModule rec {
     mv $out/bin/DnsServerApp $out/bin/technitium-dns-server
   '';
 
+  runtimeDeps = [
+    libmsquic
+  ];
+
+  # Confirmed correct by upstream, remove when fixed in a release:
+  # https://github.com/TechnitiumSoftware/DnsServer/issues/1967
+  patches = [
+    ./dnssec-do-bit-fix.patch
+  ];
+
   passthru.tests = {
     inherit (nixosTests) technitium-dns-server;
   };
@@ -48,7 +59,10 @@ buildDotnetModule rec {
     homepage = "https://github.com/TechnitiumSoftware/DnsServer";
     license = lib.licenses.gpl3Only;
     mainProgram = "technitium-dns-server";
-    maintainers = with lib.maintainers; [ fabianrig ];
+    maintainers = with lib.maintainers; [
+      fabianrig
+      awildleon
+    ];
     platforms = lib.platforms.linux;
   };
 }

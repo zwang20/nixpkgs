@@ -1,37 +1,32 @@
 {
   lib,
   buildPythonPackage,
-  fetchPypi,
-  pythonOlder,
+  fetchFromGitHub,
   pytestCheckHook,
-  nix-update-script,
-  hatchling,
+  uv-build,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "bdffont";
-  version = "0.0.28";
+  version = "0.0.39";
   pyproject = true;
 
-  disabled = pythonOlder "3.10";
-
-  src = fetchPypi {
-    pname = "bdffont";
-    inherit version;
-    hash = "sha256-pysrjxA5u4A2vxmfLh2uRa8iVUa8sTMNRnhElsApsoU=";
+  src = fetchFromGitHub {
+    owner = "TakWolf";
+    repo = "bdffont";
+    tag = finalAttrs.version;
+    hash = "sha256-sBSIcQHL1FtWmn/1ra1GgeGFzO882UMr467fEfEcG2U=";
   };
 
-  build-system = [ hatchling ];
+  build-system = [ uv-build ];
 
   nativeCheckInputs = [ pytestCheckHook ];
 
   pythonImportsCheck = [ "bdffont" ];
 
-  passthru.updateScript = nix-update-script { };
-
   meta = {
     homepage = "https://github.com/TakWolf/bdffont";
-    description = "A library for manipulating Glyph Bitmap Distribution Format (BDF) Fonts";
+    description = "Library for manipulating Glyph Bitmap Distribution Format (BDF) Fonts";
     platforms = lib.platforms.all;
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [
@@ -39,4 +34,4 @@ buildPythonPackage rec {
       h7x4
     ];
   };
-}
+})

@@ -7,6 +7,7 @@
   gtest,
   llvmPackages,
   meson,
+  mesonEmulatorHook,
   ninja,
   nixVersions,
   nix-update-script,
@@ -20,14 +21,15 @@
 }:
 
 let
+  nixComponents = nixVersions.nixComponents_2_34;
   common = rec {
-    version = "2.6.2";
+    version = "2.9.1";
 
     src = fetchFromGitHub {
       owner = "nix-community";
       repo = "nixd";
       tag = version;
-      hash = "sha256-kxCUBgdIulW68H0ATOXsWp5977HFIF7wTw3qYYfgCAQ=";
+      hash = "sha256-S/E16Yf3Qh098qXxl0pimSy/5gkkd1n/Os6B9REWleg=";
     };
 
     nativeBuildInputs = [
@@ -35,6 +37,7 @@ let
       ninja
       python3
       pkg-config
+      llvmPackages.llvm # workaround for a meson bug, where llvm-config is not found, making the build fail
     ];
 
     mesonBuildType = "release";
@@ -70,7 +73,12 @@ in
         "dev"
       ];
 
+      nativeBuildInputs =
+        common.nativeBuildInputs
+        ++ lib.optionals (!stdenv.buildPlatform.canExecute stdenv.hostPlatform) [ mesonEmulatorHook ];
+
       buildInputs = [
+        nixComponents.nix-expr
         gtest
         boost
         nlohmann_json
@@ -101,12 +109,13 @@ in
       ];
 
       buildInputs = [
-        nixVersions.nix_2_24
+        nixComponents.nix-main
+        nixComponents.nix-expr
+        nixComponents.nix-cmd
+        nixComponents.nix-flake
         gtest
         boost
       ];
-
-      env.CXXFLAGS = "-include ${nixVersions.nix_2_24.dev}/include/nix/config.h";
 
       passthru.tests.pkg-config = testers.hasPkgConfigModules {
         package = nixt;
@@ -127,7 +136,10 @@ in
       sourceRoot = "${common.src.name}/nixd";
 
       buildInputs = [
-        nixVersions.nix_2_24
+        nixComponents.nix-main
+        nixComponents.nix-expr
+        nixComponents.nix-cmd
+        nixComponents.nix-flake
         nixf
         nixt
         llvmPackages.llvm
@@ -136,8 +148,6 @@ in
       ];
 
       nativeBuildInputs = common.nativeBuildInputs ++ [ cmake ];
-
-      env.CXXFLAGS = "-include ${nixVersions.nix_2_24.dev}/include/nix/config.h";
 
       # See https://github.com/nix-community/nixd/issues/519
       doCheck = false;

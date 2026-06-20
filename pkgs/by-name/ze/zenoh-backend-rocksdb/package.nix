@@ -8,19 +8,18 @@
   rocksdb,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "zenoh-backend-rocksdb";
-  version = "1.2.1"; # nixpkgs-update: no auto update
+  version = "1.9.0"; # nixpkgs-update: no auto update
 
   src = fetchFromGitHub {
     owner = "eclipse-zenoh";
     repo = "zenoh-backend-rocksdb";
-    tag = version;
-    hash = "sha256-pqeeH44/0+ok/DmH81JykvwOIC/pIUiLjzPzVEnekag=";
+    tag = finalAttrs.version;
+    hash = "sha256-D+gc29pje4cXfIXP++572iqvzkHDrF6JVdRkdHnEY4E=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-dUQ9qGE+QphDH/vW1LXWzkJE2GSOU7Sn+xCENOvTsSc=";
+  cargoHash = "sha256-IOdwGre7j5vyJ5Zut+Q3/548xAlXxbRTVePp9V5nssI=";
 
   nativeBuildInputs = [
     pkg-config
@@ -46,6 +45,6 @@ rustPlatform.buildRustPackage rec {
       asl20
     ];
     maintainers = with lib.maintainers; [ markuskowa ];
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
-}
+})

@@ -47,11 +47,17 @@ To store your plugins in Vim packages (the native Vim plugin manager, see `:help
 vim-full.customize {
   vimrcConfig.packages.myVimPackage = with pkgs.vimPlugins; {
     # loaded on launch
-    start = [ youcompleteme fugitive ];
+    start = [
+      youcompleteme
+      fugitive
+    ];
     # manually loadable by calling `:packadd $plugin-name`
     # however, if a Vim plugin has a dependency that is not explicitly listed in
     # opt that dependency will always be added to start to avoid confusion.
-    opt = [ phpCompletion elm-vim ];
+    opt = [
+      phpCompletion
+      elm-vim
+    ];
     # To automatically load a plugin when opening a filetype, add vimrc lines like:
     # autocmd FileType php :packadd phpCompletion
   };
@@ -63,18 +69,19 @@ The resulting package can be added to `packageOverrides` in `~/.nixpkgs/config.n
 
 ```nix
 {
-  packageOverrides = pkgs: with pkgs; {
-    myVim = vim-full.customize {
-      # `name` specifies the name of the executable and package
-      name = "vim-with-plugins";
-      # add here code from the example section
-    };
-    myNeovim = neovim.override {
-      configure = {
-      # add code from the example section here
+  packageOverrides =
+    pkgs: with pkgs; {
+      myVim = vim-full.customize {
+        # `name` specifies the name of the executable and package
+        name = "vim-with-plugins";
+        # add here code from the example section
+      };
+      myNeovim = neovim.override {
+        configure = {
+          # add code from the example section here
+        };
       };
     };
-  };
 }
 ```
 
@@ -100,20 +107,18 @@ let
 in
 {
   environment.systemPackages = [
-    (
-      pkgs.neovim.override {
-        configure = {
-          packages.myPlugins = with pkgs.vimPlugins; {
+    (pkgs.neovim.override {
+      configure = {
+        packages.myPlugins = with pkgs.vimPlugins; {
           start = [
             vim-go # already packaged plugin
             easygrep # custom package
           ];
-          opt = [];
+          opt = [ ];
         };
         # ...
       };
-     }
-    )
+    })
   ];
 }
 ```
@@ -129,7 +134,12 @@ plugins the following example can be used:
 vim-full.customize {
   vimrcConfig.packages.myVimPackage = with pkgs.vimPlugins; {
     # loaded on launch
-    plug.plugins = [ youcompleteme fugitive phpCompletion elm-vim ];
+    plug.plugins = [
+      youcompleteme
+      fugitive
+      phpCompletion
+      elm-vim
+    ];
   };
 }
 ```
@@ -147,8 +157,11 @@ Some plugins require overrides in order to function properly. Overrides are plac
 
 ```nix
 {
-  deoplete-fish = super.deoplete-fish.overrideAttrs(old: {
-    dependencies = with super; [ deoplete-nvim vim-fish ];
+  deoplete-fish = super.deoplete-fish.overrideAttrs (old: {
+    dependencies = with super; [
+      deoplete-nvim
+      vim-fish
+    ];
   });
 }
 ```
@@ -157,14 +170,12 @@ Sometimes plugins require an override that must be changed when the plugin is up
 
 To add a new plugin, run `nix-shell -p vimPluginsUpdater --run 'vim-plugins-updater add "[owner]/[name]"'`. **NOTE**: This script automatically commits to your git repository. Be sure to check out a fresh branch before running.
 
-Finally, there are some plugins that are also packaged in nodePackages because they have Javascript-related build steps, such as running webpack. Those plugins are not listed in `vim-plugin-names` or managed by `vimPluginsUpdater` at all, and are included separately in `overrides.nix`. Currently, all these plugins are related to the `coc.nvim` ecosystem of the Language Server Protocol integration with Vim/Neovim.
-
 ## Updating plugins in nixpkgs {#updating-plugins-in-nixpkgs}
 
 Run the update script with a GitHub API token that has at least `public_repo` access. Running the script without the token is likely to result in rate-limiting (429 errors). For steps on creating an API token, please refer to [GitHub's token documentation](https://docs.github.com/en/free-pro-team@latest/github/authenticating-to-github/creating-a-personal-access-token).
 
 ```sh
-nix-shell -p vimPluginsUpdater --run 'vim-plugins-updater --github-token=mytoken' # or set GITHUB_API_TOKEN environment variable
+nix-shell -p vimPluginsUpdater --run 'vim-plugins-updater --github-token=mytoken' # or set GITHUB_TOKEN environment variable
 ```
 
 Alternatively, set the number of processes to a lower count to avoid rate-limiting.
@@ -173,13 +184,18 @@ Alternatively, set the number of processes to a lower count to avoid rate-limiti
 nix-shell -p vimPluginsUpdater --run 'vim-plugins-updater --proc 1'
 ```
 
-If you want to update only certain plugins, you can specify them after the `update` command. Note that you must use the same plugin names as the `pkgs/applications/editors/vim/plugins/vim-plugin-names` file.
+To update only specific plugins, list them after the `update` command:
 
 ```sh
-nix-shell -p vimPluginsUpdater --run 'vim-plugins-updater update "nvim-treesitter" "LazyVim"'
+nix-shell -p vimPluginsUpdater --run 'vim-plugins-updater update "nvim-treesitter" "mini.nvim" "mini-nvim"'
 ```
 
-## How to maintain an out-of-tree overlay of vim plugins ? {#vim-out-of-tree-overlays}
+The updater script accepts plugin arguments in different formats:
+
+- `"mini.nvim"` := The GitHub repository name, the raw plugin name, or the alias defined in `vim-plugin-names`.
+- `"mini-nvim"` := The normalized plugin name, which matches the attribute name generated in `generated.nix`
+
+## How to maintain an out-of-tree overlay of vim plugins? {#vim-out-of-tree-overlays}
 
 You can use the updater script to generate basic packages out of a custom vim
 plugin list:
@@ -199,9 +215,7 @@ You can then reference the generated vim plugins via:
 
 ```nix
 {
-  myVimPlugins = pkgs.vimPlugins.extend (
-    (pkgs.callPackage ./generated.nix {})
-  );
+  myVimPlugins = pkgs.vimPlugins.extend ((pkgs.callPackage ./generated.nix { }));
 }
 ```
 

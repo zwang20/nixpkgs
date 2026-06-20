@@ -1,29 +1,51 @@
 {
-  buildGo123Module,
-  buildNpmPackage,
-  fetchFromGitHub,
   lib,
+  fetchFromGitHub,
+  buildGoModule,
+  stdenvNoCC,
+  fetchPnpmDeps,
+  pnpmConfigHook,
+  pnpmBuildHook,
+  nodejs-slim,
+  pnpm_10,
+  nix-update-script,
+  nixosTests,
 }:
 
 let
-  version = "2.31.0";
+  version = "2.63.14";
 
   src = fetchFromGitHub {
     owner = "filebrowser";
     repo = "filebrowser";
-    rev = "v${version}";
-    hash = "sha256-zLM1fLrucIhzGdTTDu81ZnTIipK+iRnPhgfMiT1P+yg=";
+    tag = "v${version}";
+    hash = "sha256-9CXHoQWr1RpTwFR8JRR72oQZxHrndTrnxYa6/0Z3Mk0=";
   };
 
-  frontend = buildNpmPackage rec {
+  frontend = stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "filebrowser-frontend";
     inherit version src;
 
     sourceRoot = "${src.name}/frontend";
 
-    npmDepsHash = "sha256-5/yEMWkNPAS8/PkaHlPBGFLiJu7xK2GHYo5dYqHAfCE=";
+    nativeBuildInputs = [
+      nodejs-slim
+      pnpmConfigHook
+      pnpmBuildHook
+      pnpm_10
+    ];
 
-    NODE_OPTIONS = "--openssl-legacy-provider";
+    pnpmDeps = fetchPnpmDeps {
+      inherit (finalAttrs)
+        pname
+        version
+        src
+        sourceRoot
+        ;
+      fetcherVersion = 3;
+      pnpm = pnpm_10;
+      hash = "sha256-UwTA7Eogp2GrvmXDbdfGBTJS3DuOTJ42e6fHlQxSHoA=";
+    };
 
     installPhase = ''
       runHook preInstall
@@ -33,13 +55,14 @@ let
 
       runHook postInstall
     '';
-  };
+  });
+
 in
-buildGo123Module {
+buildGoModule {
   pname = "filebrowser";
   inherit version src;
 
-  vendorHash = "sha256-N5aUs8rgTYXeb0qJhPQBCa6lUDkT6lH1bh+1u4bixos=";
+  vendorHash = "sha256-ofeQkbvBfCpu2g1CLAwUZAZISyAOz+0smEZRx/koj/8=";
 
   excludedPackages = [ "tools" ];
 
@@ -47,15 +70,29 @@ buildGo123Module {
     cp -r ${frontend}/dist frontend/
   '';
 
+  ldflags = [
+    "-X github.com/filebrowser/filebrowser/v2/version.Version=v${version}"
+  ];
+
   passthru = {
+    updateScript = nix-update-script {
+      extraArgs = [
+        "--subpackage"
+        "frontend"
+      ];
+    };
     inherit frontend;
+    tests = {
+      inherit (nixosTests) filebrowser;
+    };
   };
 
-  meta = with lib; {
-    description = "Filebrowser is a web application for managing files and directories";
+  meta = {
+    description = "Web application for managing files and directories";
     homepage = "https://filebrowser.org";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ oakenshield ];
+    changelog = "https://github.com/filebrowser/filebrowser/releases/${src.tag}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ oakenshield ];
     mainProgram = "filebrowser";
   };
 }

@@ -2,65 +2,42 @@
   lib,
   stdenv,
   buildPythonPackage,
+  replaceVars,
   fetchPypi,
+  setuptools,
   pkgs,
   pillow,
   mesa,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "pyopengl";
-  version = "3.1.7";
-  format = "setuptools";
+  version = "3.1.10";
+  pyproject = true;
 
   src = fetchPypi {
-    pname = "PyOpenGL";
-    inherit version;
-    hash = "sha256-7vMaOIjmmE/U2ObJlhsYTJgTyoJgTTf+PagOsACnbIY=";
+    inherit (finalAttrs) pname version;
+    hash = "sha256-xKAtaGa1TrEZyOmz+wT6g1qVq4At2WYHq0zbABLfgzU=";
   };
 
-  propagatedBuildInputs = [ pillow ];
+  build-system = [ setuptools ];
 
-  patchPhase =
-    let
-      ext = stdenv.hostPlatform.extensions.sharedLibrary;
-    in
-    lib.optionalString (!stdenv.hostPlatform.isDarwin) ''
-      # Theses lines are patching the name of dynamic libraries
-      # so pyopengl can find them at runtime.
-      substituteInPlace OpenGL/platform/glx.py \
-        --replace '"OpenGL",' '"${pkgs.libGL}/lib/libOpenGL${ext}",' \
-        --replace '"GL",' '"${pkgs.libGL}/lib/libGL${ext}",' \
-        --replace '"GLU",' '"${pkgs.libGLU}/lib/libGLU${ext}",' \
-        --replace '"GLX",' '"${pkgs.libglvnd}/lib/libGLX${ext}",' \
-        --replace '"glut",' '"${pkgs.libglut}/lib/libglut${ext}",' \
-        --replace '"GLESv1_CM",' '"${pkgs.libGL}/lib/libGLESv1_CM${ext}",' \
-        --replace '"GLESv2",' '"${pkgs.libGL}/lib/libGLESv2${ext}",' \
-        --replace '"gle",' '"${pkgs.gle}/lib/libgle${ext}",' \
-        --replace "'EGL'" "'${pkgs.libGL}/lib/libEGL${ext}'"
-      substituteInPlace OpenGL/platform/egl.py \
-        --replace "('OpenGL','GL')" "('${pkgs.libGL}/lib/libOpenGL${ext}', '${pkgs.libGL}/lib/libGL${ext}')" \
-        --replace "'GLU'," "'${pkgs.libGLU}/lib/libGLU${ext}'," \
-        --replace "'glut'," "'${pkgs.libglut}/lib/libglut${ext}'," \
-        --replace "'GLESv1_CM'," "'${pkgs.libGL}/lib/libGLESv1_CM${ext}'," \
-        --replace "'GLESv2'," "'${pkgs.libGL}/lib/libGLESv2${ext}'," \
-        --replace "'gle'," '"${pkgs.gle}/lib/libgle${ext}",' \
-        --replace "'EGL'," "'${pkgs.libGL}/lib/libEGL${ext}',"
-      substituteInPlace OpenGL/platform/darwin.py \
-        --replace "'OpenGL'," "'${pkgs.libGL}/lib/libGL${ext}'," \
-        --replace "'GLUT'," "'${pkgs.libglut}/lib/libglut${ext}',"
-    ''
-    + ''
-      # https://github.com/NixOS/nixpkgs/issues/76822
-      # pyopengl introduced a new "robust" way of loading libraries in 3.1.4.
-      # The later patch of the filepath does not work anymore because
-      # pyopengl takes the "name" (for us: the path) and tries to add a
-      # few suffix during its loading phase.
-      # The following patch put back the "name" (i.e. the path) in the
-      # list of possible files.
-      substituteInPlace OpenGL/platform/ctypesloader.py \
-        --replace "filenames_to_try = [base_name]" "filenames_to_try = [name]"
-    '';
+  dependencies = [ pillow ];
+
+  passthru.runtimeLibs = lib.optionals (!stdenv.hostPlatform.isDarwin) [
+    "/run/opengl-driver/lib"
+    pkgs.libglvnd
+    pkgs.libGLU
+    pkgs.libglut
+    pkgs.gle
+  ];
+
+  patches = lib.optionals (finalAttrs.passthru.runtimeLibs != [ ]) [
+    # patch OpenGL.platform.ctypesloader::_loadLibraryPosix with extra search paths
+    (replaceVars ./ld-preload-gl.patch {
+      GL_LD_LIBRARY_PATH = lib.makeLibraryPath finalAttrs.passthru.runtimeLibs;
+    })
+  ];
 
   # Need to fix test runner
   # Tests have many dependencies
@@ -68,10 +45,23 @@ buildPythonPackage rec {
   # Should run test suite from $out/${python.sitePackages}
   doCheck = false; # does not affect pythonImportsCheck
 
-  # OpenGL looks for libraries during import, making this a somewhat decent test of the flaky patching above.
-  pythonImportsCheck = "OpenGL";
+  # PyOpenGL looks for libraries during import, making this a somewhat decent test of our patching
+  # (these are impure deps on darwin)
+  pythonImportsCheck = [
+    "OpenGL"
+    "OpenGL.GL"
+    "OpenGL.GLE"
+    "OpenGL.GLU"
+  ]
+  ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [
+    "OpenGL.EGL"
+    "OpenGL.GLES1"
+    "OpenGL.GLES2"
+    "OpenGL.GLES3"
+    "OpenGL.GLX"
+  ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://mcfletch.github.io/pyopengl/";
     description = "PyOpenGL, the Python OpenGL bindings";
     longDescription = ''
@@ -80,7 +70,7 @@ buildPythonPackage rec {
       Python 2.5) ctypes library, and is provided under an extremely
       liberal BSD-style Open-Source license.
     '';
-    license = licenses.bsd3;
+    license = lib.licenses.bsd3;
     inherit (mesa.meta) platforms;
   };
-}
+})

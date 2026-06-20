@@ -22,7 +22,7 @@ stdenv.mkDerivation {
           jq
           nurl
         ]
-      } \
+      }
   '';
 
   preferLocalBuild = true;
@@ -32,7 +32,7 @@ stdenv.mkDerivation {
   meta = {
     description = "Generate a Nix expression to fetch swiftpm dependencies";
     mainProgram = "swiftpm2nix";
-    maintainers = lib.teams.swift.members;
+    teams = [ lib.teams.swift ];
     platforms = lib.platforms.all;
   };
 }

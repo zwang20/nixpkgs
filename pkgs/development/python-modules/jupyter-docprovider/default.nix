@@ -7,15 +7,16 @@
   jupyter-collaboration,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "jupyter-docprovider";
-  version = "2.0.1";
+  version = "2.4.1";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchPypi {
     pname = "jupyter_docprovider";
-    inherit version;
-    hash = "sha256-4pyF5HDQ7dP32R+O3QN8DWtvJpQxBBbjWXaRAfs10b4=";
+    inherit (finalAttrs) version;
+    hash = "sha256-DOMsS+96PQZfZ36D9lBlAq1oaD2PpzIBJaMWzviSx0s=";
   };
 
   postPatch = ''
@@ -33,12 +34,12 @@ buildPythonPackage rec {
   # no tests
   doCheck = false;
 
-  passthru.tests = jupyter-collaboration.tests;
+  passthru.tests = jupyter-collaboration;
 
   meta = {
     description = "JupyterLab/Jupyter Notebook 7+ extension integrating collaborative shared models";
     homepage = "https://github.com/jupyterlab/jupyter-collaboration/tree/main/projects/jupyter-docprovider";
     license = lib.licenses.bsd3;
-    maintainers = lib.teams.jupyter.members;
+    teams = [ lib.teams.jupyter ];
   };
-}
+})

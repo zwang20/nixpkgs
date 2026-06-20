@@ -5,6 +5,7 @@
   fetchFromGitHub,
 
   # build-system
+  setuptools,
   cython,
   versioneer,
 
@@ -14,13 +15,13 @@
   filelock,
   logical-unification,
   minikanren,
+  numba,
   numpy,
   scipy,
 
   # tests
   jax,
   jaxlib,
-  numba,
   pytest-benchmark,
   pytest-mock,
   pytestCheckHook,
@@ -30,19 +31,24 @@
   nix-update-script,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "pytensor";
-  version = "2.30.3";
+  version = "3.0.7";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "pymc-devs";
     repo = "pytensor";
-    tag = "rel-${version}";
-    hash = "sha256-Tsu+q3PeJSIVdW5wRB1RRk4oolXpj58ZbBQ20gaHJ7o=";
+    tag = "rel-${finalAttrs.version}";
+    postFetch = ''
+      sed -i 's/git_refnames = "[^"]*"/git_refnames = " (tag: ${finalAttrs.src.tag})"/' $out/pytensor/_version.py
+    '';
+    hash = "sha256-/ECRFuRSTXZtBD8EUY3dg0Z4SxLG1+7DzHSWFSAnsoU=";
   };
 
   build-system = [
+    setuptools
     cython
     versioneer
   ];
@@ -53,8 +59,10 @@ buildPythonPackage rec {
     filelock
     logical-unification
     minikanren
+    numba
     numpy
     scipy
+    setuptools
   ];
 
   nativeCheckInputs = [
@@ -68,6 +76,8 @@ buildPythonPackage rec {
     writableTmpDirAsHomeHook
   ];
 
+  pytestFlags = [ "--benchmark-disable" ];
+
   pythonImportsCheck = [ "pytensor" ];
 
   # Ensure that the installed package is used instead of the source files from the current workdir
@@ -76,6 +86,14 @@ buildPythonPackage rec {
   '';
 
   disabledTests = lib.optionals stdenv.hostPlatform.isDarwin [
+    # Numerical assertion error
+    # tests.unittest_tools.WrongValue: WrongValue
+    "test_op_sd"
+    "test_op_ss"
+
+    # AssertionError: equal_computations failed
+    "test_infer_shape_db_handles_xtensor_lowering"
+
     # pytensor.link.c.exceptions.CompileError: Compilation failed (return status=1)
     "OpFromGraph"
     "add"
@@ -116,6 +134,7 @@ buildPythonPackage rec {
     "test_modes"
     "test_mul_s_v_grad"
     "test_multiple_outputs"
+    "test_nnet"
     "test_not_inplace"
     "test_numba_Cholesky_grad"
     "test_numba_pad"
@@ -128,6 +147,7 @@ buildPythonPackage rec {
     "test_scan_err1"
     "test_scan_err2"
     "test_shared"
+    "test_size_implied_by_broadcasted_parameters"
     "test_solve_triangular_grad"
     "test_structured_add_s_v_grad"
     "test_structureddot_csc_grad"
@@ -145,7 +165,13 @@ buildPythonPackage rec {
     # Don't run the most compute-intense tests
     "tests/scan/"
     "tests/tensor/"
-    "tests/sparse/sandbox/"
+
+    # The IndexedElemwise fusion is intentionally disabled on the 3.0.x line
+    # (it can trigger a RecursionError, see the comment in
+    # pytensor/tensor/rewriting/indexed_elemwise.py), but these tests still
+    # assert that the fusion produces an IndexedElemwise node. Upstream test bug.
+    "tests/link/numba/test_indexed_elemwise.py"
+    "tests/benchmarks/test_gather_fusion.py"
   ];
 
   passthru.updateScript = nix-update-script {
@@ -159,11 +185,10 @@ buildPythonPackage rec {
     description = "Python library to define, optimize, and efficiently evaluate mathematical expressions involving multi-dimensional arrays";
     mainProgram = "pytensor-cache";
     homepage = "https://github.com/pymc-devs/pytensor";
-    changelog = "https://github.com/pymc-devs/pytensor/releases/tag/rel-${version}";
+    changelog = "https://github.com/pymc-devs/pytensor/releases/tag/${finalAttrs.src.tag}";
     license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [
       bcdarwin
-      ferrine
     ];
   };
-}
+})

@@ -9,14 +9,14 @@
 
 buildPythonPackage rec {
   pname = "deltachat2";
-  version = "0.6.2";
+  version = "0.10.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "adbenitez";
     repo = "deltachat2";
     tag = version;
-    hash = "sha256-bp4bi+EeMaWP8zOaPp0eaPKn71F055QgMOOSDzIJUH4=";
+    hash = "sha256-04MXh1p2xRRnvyu5GrPqMuaraP08WQbFzXYhkXRznA4=";
   };
 
   patches = [

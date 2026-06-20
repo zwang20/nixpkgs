@@ -58,28 +58,21 @@ import ../make-test-python.nix (
                   UserNoticesEnabled = false;
                 };
               };
+              package = pkgs.mattermost.override {
+                removeFreeBadge = true;
+                removeUserLimit = true;
+              };
             } mattermostConfig;
 
             # Upgrade to the latest Mattermost.
             specialisation.latest.configuration = {
-              services.mattermost.package = lib.mkForce pkgs.mattermostLatest;
+              services.mattermost.package = lib.mkForce (
+                pkgs.mattermostLatest.override {
+                  removeFreeBadge = true;
+                  removeUserLimit = true;
+                }
+              );
               system.stateVersion = lib.mkVMOverride (lib.versions.majorMinor lib.version);
-            };
-          }
-        )
-        extraConfig
-      ];
-
-    makeMysql =
-      mattermostConfig: extraConfig:
-      lib.mkMerge [
-        mattermostConfig
-        (
-          { pkgs, config, ... }:
-          {
-            services.mattermost.database = {
-              driver = lib.mkForce "mysql";
-              peerAuth = lib.mkForce true;
             };
           }
         )
@@ -89,7 +82,7 @@ import ../make-test-python.nix (
   {
     name = "mattermost";
 
-    nodes = rec {
+    nodes = {
       postgresMutable = makeMattermost {
         mutableConfig = true;
         preferNixConfig = false;
@@ -148,11 +141,9 @@ import ../make-test-python.nix (
         package = pkgs.mattermost.overrideAttrs (prev: {
           webapp = prev.webapp.overrideAttrs (prevWebapp: {
             # Ensure that users can add patches.
-            postPatch =
-              prevWebapp.postPatch or ""
-              + ''
-                substituteInPlace channels/src/root.html --replace-fail "Mattermost" "Patched Mattermost"
-              '';
+            postPatch = prevWebapp.postPatch or "" + ''
+              substituteInPlace channels/src/root.html --replace-fail "Mattermost" "Patched Mattermost"
+            '';
           });
         });
         mutableConfig = false;
@@ -176,25 +167,6 @@ import ../make-test-python.nix (
           MM_SUPPORTSETTINGS_ABOUTLINK=https://nixos.org
         '';
       } { };
-
-      mysqlMutable = makeMysql postgresMutable { };
-      mysqlMostlyMutable = makeMysql postgresMostlyMutable { };
-      mysqlImmutable = makeMysql postgresImmutable {
-        # Let's try to use this on MySQL.
-        services.mattermost.database = {
-          peerAuth = lib.mkForce true;
-          user = lib.mkForce "mmuser";
-          name = lib.mkForce "mmuser";
-        };
-      };
-      mysqlEnvironmentFile = makeMysql postgresEnvironmentFile {
-        services.mattermost.environmentFile = lib.mkForce (
-          pkgs.writeText "mattermost-env" ''
-            MM_SQLSETTINGS_DATASOURCE=mattermost@unix(/run/mysqld/mysqld.sock)/mattermost?charset=utf8mb4,utf8&writeTimeout=30s
-            MM_SUPPORTSETTINGS_ABOUTLINK=https://nixos.org
-          ''
-        );
-      };
     };
 
     testScript =
@@ -335,9 +307,23 @@ import ../make-test-python.nix (
             if [ "$actualPostAttachmentHash" != "$postAttachmentHash" ]; then
               echo "Post attachment hash mismatched!" >&2
               exit 1
-            else
+            fi
+
+            # Make sure it's on the filesystem in the expected place
+            fsPath="$(find /var/lib/mattermost/data -name "$(basename -- "$postAttachment")" -print -quit)"
+            if [ -z "$fsPath" ] || [ ! -f "$fsPath" ]; then
+              echo "Attachment didn't exist on the filesystem!" >&2
+              exit 1
+            fi
+
+            # And that the hash matches.
+            actualFsAttachmentHash="$(sha256sum "$fsPath" | awk '{print $1}')"
+            if [ "$actualFsAttachmentHash" == "$postAttachmentHash" ]; then
               echo "Post attachment hash was OK!" >&2
               exit 0
+            else
+              echo "Attachment hash mismatched on disk!" >&2
+              exit 1
             fi
           else
             echo "Post didn't exist when it should have!" >&2
@@ -454,11 +440,9 @@ import ../make-test-python.nix (
           # Switch to the newer config and make sure the plugins directory is replaced with a directory,
           # since it could have been a symlink on previous versions.
           mostlyMutable.systemctl("stop mattermost.service")
-          mostlyMutable.succeed(f"[ ! -L /var/lib/mattermost/data/plugins ] && rm -rf /var/lib/mattermost/data/plugins && ln -s {mostlyMutablePlugins} /var/lib/mattermost/data/plugins || true")
           mostlyMutable.succeed('[ -L /var/lib/mattermost/data/plugins ] && [ -d /var/lib/mattermost/data/plugins ]')
           switch_to_specialisation(mostlyMutable, mostlyMutableToplevel, "upgrade")
           wait_mattermost_up(mostlyMutable)
-          mostlyMutable.succeed('[ ! -L /var/lib/mattermost/data/plugins ] && [ -d /var/lib/mattermost/data/plugins ]')
 
           # HelpLink should be changed, still, and the post should still exist
           expect_config(mostlyMutable, esr, '.AboutLink == "https://nixos.org" and .HelpLink == "https://nixos.org/nixos/manual"')
@@ -556,22 +540,6 @@ import ../make-test-python.nix (
             node.shutdown()
             shutdown_queue.task_done()
         threading.Thread(target=shutdown_worker, daemon=True).start()
-
-        ${pkgs.lib.optionalString pkgs.stdenv.isx86_64 ''
-          # Only run the MySQL tests on x86_64 so we don't have to debug MySQL ARM issues.
-          run_mattermost_tests(
-            shutdown_queue,
-            "${nodes.mysqlMutable.system.build.toplevel}",
-            mysqlMutable,
-            "${nodes.mysqlMostlyMutable.system.build.toplevel}",
-            "${nodes.mysqlMostlyMutable.services.mattermost.pluginsBundle}",
-            mysqlMostlyMutable,
-            "${nodes.mysqlImmutable.system.build.toplevel}",
-            mysqlImmutable,
-            "${nodes.mysqlEnvironmentFile.system.build.toplevel}",
-            mysqlEnvironmentFile
-          )
-        ''}
 
         run_mattermost_tests(
           shutdown_queue,

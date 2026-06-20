@@ -13,13 +13,13 @@
 
 stdenv.mkDerivation {
   pname = "wdt";
-  version = "1.27.1612021-unstable-2024-12-06";
+  version = "1.27.1612021-unstable-2026-06-09";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = "wdt";
-    rev = "7e56c871be706cc96df48be7c4017bff7c6fc7c8";
-    sha256 = "sha256-mvfJUiOI7Cre90hIaBJcmfTbTV5M+Hf+p6VKNYEc5WU=";
+    rev = "b3e21d71b2223fcecba58436f81a0ba7a56a6d6a";
+    hash = "sha256-H7/WJV5rvgdjwFAV2FCAbmkdsqO45LsDAfCroFbxTU4=";
   };
 
   nativeBuildInputs = [ cmake ];
@@ -37,6 +37,10 @@ stdenv.mkDerivation {
     ln -s $sourceRoot wdt
   '';
 
+  patches = [
+    ./fix-glog-include.patch
+  ];
+
   cmakeFlags = [
     "-DWDT_USE_SYSTEM_FOLLY=ON"
   ];
@@ -47,11 +51,18 @@ stdenv.mkDerivation {
     };
   };
 
-  meta = with lib; {
+  postPatch = ''
+    substituteInPlace CMakeLists.txt \
+      --replace-fail "cmake_minimum_required(VERSION 3.2)" "cmake_minimum_required(VERSION 3.10)" \
+      --replace-fail "find_package(Boost COMPONENTS system filesystem REQUIRED)" \
+        "find_package(Boost COMPONENTS filesystem REQUIRED)"
+  '';
+
+  meta = {
     description = "Warp speed Data Transfer";
     homepage = "https://github.com/facebook/wdt";
-    license = licenses.bsd3;
-    maintainers = with maintainers; [ nickcao ];
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ nickcao ];
     platforms = [ "x86_64-linux" ];
   };
 }

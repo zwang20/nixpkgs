@@ -2,23 +2,17 @@
   lib,
   buildNpmPackage,
   fetchFromGitHub,
-  stdenv,
-  overrideSDK,
+  nix-update-script,
 }:
-let
-  buildNpmPackage' = buildNpmPackage.override {
-    stdenv = if stdenv.hostPlatform.isDarwin then overrideSDK stdenv "11.0" else stdenv;
-  };
-in
-buildNpmPackage' rec {
+buildNpmPackage (finalAttrs: {
   pname = "eslint";
-  version = "9.20.0";
+  version = "10.4.1";
 
   src = fetchFromGitHub {
     owner = "eslint";
     repo = "eslint";
-    tag = "v${version}";
-    hash = "sha256-ahERh5Io2J/Uz9fgY875ldPtzjiasqxZ0ppINwYNoB4=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-/gNNO8r2QmvfVS28aF3hsWqCz157pInDVlPxy+xq0hA=";
   };
 
   # NOTE: Generating lock-file
@@ -30,16 +24,24 @@ buildNpmPackage' rec {
     cp ${./package-lock.json} package-lock.json
   '';
 
-  npmDepsHash = "sha256-F3EUANBvniczR7QxNfo1LlksYPxXt16uqJDFzN6u64Y=";
+  npmDepsHash = "sha256-OJ/xO2zJk0N4SmKYXCjiqcBc8B+wJKTKDE52ag6ODeo=";
   npmInstallFlags = [ "--omit=dev" ];
 
   dontNpmBuild = true;
   dontNpmPrune = true;
 
+  passthru.updateScript = nix-update-script {
+    extraArgs = [ "--generate-lockfile" ];
+  };
+
   meta = {
+    changelog = "https://github.com/eslint/eslint/blob/${finalAttrs.src.rev}/CHANGELOG.md";
     description = "Find and fix problems in your JavaScript code";
     homepage = "https://eslint.org";
     license = lib.licenses.mit;
-    maintainers = [ lib.maintainers.onny ];
+    maintainers = with lib.maintainers; [
+      mdaniels5757
+      onny
+    ];
   };
-}
+})

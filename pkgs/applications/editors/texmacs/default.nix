@@ -3,6 +3,7 @@
   stdenv,
   callPackage,
   fetchurl,
+  gnutls,
   guile_1_8,
   xmodmap,
   which,
@@ -15,11 +16,8 @@
   python3 ? null,
   cmake,
   pkg-config,
-  wrapQtAppsHook,
   xdg-utils,
-  qtbase,
-  qtsvg,
-  qtmacextras,
+  qt6,
   ghostscriptX ? null,
   extraFonts ? false,
   chineseFonts ? false,
@@ -29,7 +27,7 @@
 
 let
   pname = "texmacs";
-  version = "2.1.4";
+  version = "2.1.5";
   common = callPackage ./common.nix {
     inherit
       extraFonts
@@ -45,42 +43,40 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://www.texmacs.org/Download/ftp/tmftp/source/TeXmacs-${version}-src.tar.gz";
-    hash = "sha256-h6aSLuDdrAtVzOnNVPqMEWX9WLDHtkCjPy9JXWnBgYY=";
+    hash = "sha256-s6EnvbqOeQELI5KRQVy+NDEzNSHiRHeoFLWG4bQCc2A=";
   };
 
-  postPatch =
-    common.postPatch
-    + ''
-      substituteInPlace configure \
-        --replace "-mfpmath=sse -msse2" ""
-    '';
+  postPatch = common.postPatch + ''
+    substituteInPlace configure \
+      --replace-fail "-mfpmath=sse -msse2" ""
+  '';
 
   nativeBuildInputs = [
     guile_1_8
     pkg-config
-    wrapQtAppsHook
+    qt6.wrapQtAppsHook
     xdg-utils
     cmake
   ];
 
-  buildInputs =
-    [
-      guile_1_8
-      qtbase
-      qtsvg
-      ghostscriptX
-      freetype
-      libjpeg
-      sqlite
-      git
-      python3
-    ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      qtmacextras
-    ];
+  buildInputs = [
+    gnutls
+    guile_1_8
+    qt6.qtbase
+    qt6.qtsvg
+    qt6.qt5compat
+    ghostscriptX
+    freetype
+    libjpeg
+    sqlite
+    git
+    python3
+  ];
 
-  cmakeFlags = lib.optionals stdenv.hostPlatform.isDarwin [
-    (lib.cmakeFeature "TEXMACS_GUI" "Qt")
+  cmakeFlags = [
+    (lib.cmakeFeature "TEXMACS_GUI" "Qt6")
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
     (lib.cmakeFeature "CMAKE_INSTALL_PREFIX" "./TeXmacs.app/Contents/Resources")
   ];
 
@@ -105,6 +101,11 @@ stdenv.mkDerivation {
       git
       python3
     ])
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    "--set"
+    "TEXMACS_PATH"
+    "${placeholder "out"}/Applications/TeXmacs.app/Contents/Resources/share/TeXmacs"
   ];
 
   postFixup = lib.optionalString (!stdenv.hostPlatform.isDarwin) ''

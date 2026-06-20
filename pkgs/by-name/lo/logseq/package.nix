@@ -1,46 +1,42 @@
 {
   lib,
   stdenv,
+  clang_20,
 
   fetchFromGitHub,
   fetchYarnDeps,
   replaceVars,
-  runCommand,
   writeShellScriptBin,
 
   copyDesktopItems,
   cctools,
   clojure,
+  darwin,
   makeDesktopItem,
   makeWrapper,
-  nodejs,
+  nodejs-slim,
   removeReferencesTo,
   yarnBuildHook,
   yarnConfigHook,
   xcbuild,
   zip,
 
-  electron,
+  electron_39,
   git,
 }:
 
 let
-  # unpack tarball containing electron's headers
-  electron-headers = runCommand "electron-headers" { } ''
-    mkdir -p $out
-    tar -C $out --strip-components=1 -xvf ${electron.headers}
-  '';
+  electron = electron_39;
 in
-
 stdenv.mkDerivation (finalAttrs: {
   pname = "logseq";
-  version = "0.10.9-unstable-2025-03-11";
+  version = "0.10.15";
 
   src = fetchFromGitHub {
     owner = "logseq";
     repo = "logseq";
-    rev = "ac0a0dae727c46b348d0f1410138d5e49d446692";
-    hash = "sha256-esCB51BeWnni/JFL4yMKcJj5lka2+hLpcvWGify0T2o=";
+    tag = finalAttrs.version;
+    hash = "sha256-knosNA2Gqy10Kr9HWnBdYNlV51zzgFuL8cdioVlAk0Q=";
   };
 
   patches = [
@@ -61,6 +57,10 @@ stdenv.mkDerivation (finalAttrs: {
 
     ./electron-forge-package-instead-of-make.patch
     ./electron-forge-disable-signing.patch
+
+    # bumps better-sqlite3 to work with electron 39+
+    # also fixes outdated yarn.lock
+    ./bump-better-sqlite3.patch
   ];
 
   mavenRepo = stdenv.mkDerivation {
@@ -105,30 +105,30 @@ stdenv.mkDerivation (finalAttrs: {
 
   yarnOfflineCacheRoot = fetchYarnDeps {
     name = "logseq-${finalAttrs.version}-yarn-deps-root";
-    inherit (finalAttrs) src;
-    hash = "sha256-z4G675kxfpmG2AJlbK5bfeUUgX7jz1ys2FlMNHJqrQ4=";
+    inherit (finalAttrs) src patches;
+    hash = "sha256-xfAJ38shd92KdRfh/P7BH4eolZHQmzl4raoH1aZpGRk=";
   };
 
   # ./static and ./resources are combined into ./static by the build process
   # ./static contains the lockfile and ./resources contains everything else
   yarnOfflineCacheStaticResources = fetchYarnDeps {
     name = "logseq-${finalAttrs.version}-yarn-deps-static-resources";
-    inherit (finalAttrs) src;
-    sourceRoot = "${finalAttrs.src.name}/static";
-    hash = "sha256-xuZj2EKHxvkiDPKMLh3ZSvLT54k+buHqg9lRTFv8rNI=";
+    inherit (finalAttrs) src patches;
+    postPatch = "cd ./static";
+    hash = "sha256-5DBVlCWlUXYvo0bJWQwvSNMW4P9E8kjE9RQe9/ViJM0=";
   };
 
   yarnOfflineCacheAmplify = fetchYarnDeps {
     name = "logseq-${finalAttrs.version}-yarn-deps-amplify";
-    inherit (finalAttrs) src;
-    sourceRoot = "${finalAttrs.src.name}/packages/amplify";
+    inherit (finalAttrs) src patches;
+    postPatch = "cd ./packages/amplify";
     hash = "sha256-IOhSwIf5goXCBDGHCqnsvWLf3EUPqq75xfQg55snIp4=";
   };
 
   yarnOfflineCacheTldraw = fetchYarnDeps {
     name = "logseq-${finalAttrs.version}-yarn-deps-tldraw";
-    inherit (finalAttrs) src;
-    sourceRoot = "${finalAttrs.src.name}/tldraw";
+    inherit (finalAttrs) src patches;
+    postPatch = "cd ./tldraw";
     hash = "sha256-CtMl3MPlyO5nWfFhCC1SLb/+1HUM3YfFATAPqJg3rUo=";
   };
 
@@ -150,8 +150,9 @@ stdenv.mkDerivation (finalAttrs: {
       copyDesktopItems
       fakeGit
       makeWrapper
-      nodejs
-      (nodejs.python.withPackages (ps: [ ps.setuptools ]))
+      nodejs-slim
+      nodejs-slim.npm
+      (nodejs-slim.python.withPackages (ps: [ ps.setuptools ]))
       removeReferencesTo
       yarnBuildHook
       yarnConfigHook
@@ -159,7 +160,9 @@ stdenv.mkDerivation (finalAttrs: {
     ]
     ++ lib.optionals stdenv.hostPlatform.isDarwin [
       cctools
+      darwin.autoSignDarwinBinariesHook
       xcbuild
+      clang_20 # newer clang breaks node-addon-api on darwin
     ];
 
   # we'll run the hook manually multiple times
@@ -197,12 +200,12 @@ stdenv.mkDerivation (finalAttrs: {
 
     yarn --offline --cwd tldraw postinstall
 
-    export npm_config_nodedir=${nodejs}
+    export npm_config_nodedir=${nodejs-slim}
     pushd packages/amplify
     npm rebuild --verbose
     popd
 
-    export npm_config_nodedir=${electron-headers}
+    export npm_config_nodedir=${electron.headers}
 
     pushd static
 
@@ -210,15 +213,16 @@ stdenv.mkDerivation (finalAttrs: {
     substituteInPlace node_modules/dugite/package.json \
       --replace-fail '"postinstall"' '"_postinstall"'
 
-    # this doesn't seem to build with electron-headers
+    # this doesn't seem to build with electron.headers
     rm node_modules/macos-alias/binding.gyp
 
     # the electron-rebuild command deadlocks for some reason, let's just use normal npm rebuild (since we overrode the nodedir anyways)
     npm rebuild --verbose
 
-    # remove most references to electron-headers
-    # TODO: track down the remaining references
-    find node_modules -type f \( -name "*.target.mk" -o -name "config.gypi" -o -name "Makefile" \) -delete
+    # remove most references to electron.headers
+    shopt -s globstar
+    rm -r node_modules/**/{*.target.mk,config.gypi,Makefile,Release/.deps}
+    shopt -u globstar
 
     popd
 
@@ -239,37 +243,36 @@ stdenv.mkDerivation (finalAttrs: {
 
   yarnBuildScript = "release-electron";
 
-  installPhase =
-    ''
-      runHook preInstall
+  installPhase = ''
+    runHook preInstall
 
-      # remove references to nodejs
-      find static/out/*/resources/app/node_modules -type f -executable -exec remove-references-to -t ${nodejs} '{}' \;
-    ''
-    + lib.optionalString stdenv.hostPlatform.isLinux ''
-      install -Dm644 static/icons/logseq.png "$out/share/icons/hicolor/512x512/apps/logseq.png"
+    # remove references to nodejs
+    find static/out/*/resources/app/node_modules -type f -executable -exec remove-references-to -t ${nodejs-slim} '{}' \;
+  ''
+  + lib.optionalString stdenv.hostPlatform.isLinux ''
+    install -Dm644 static/icons/logseq.png "$out/share/icons/hicolor/512x512/apps/logseq.png"
 
-      mkdir -p $out/share/logseq
-      cp -r static/out/*/{locales,resources{,.pak}} $out/share/logseq
+    mkdir -p $out/share/logseq
+    cp -r static/out/*/{locales,resources{,.pak}} $out/share/logseq
 
-      makeWrapper ${lib.getExe electron} $out/bin/logseq \
-          --add-flags $out/share/logseq/resources/app \
-          --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}}" \
-          --set-default LOCAL_GIT_DIRECTORY ${git} \
-          --inherit-argv0
-    ''
-    + lib.optionalString stdenv.hostPlatform.isDarwin ''
-      mkdir -p $out/Applications
-      cp -r static/out/*/Logseq.app $out/Applications
+    makeWrapper ${lib.getExe electron} $out/bin/logseq \
+        --add-flags $out/share/logseq/resources/app \
+        --add-flags "\''${NIXOS_OZONE_WL:+\''${WAYLAND_DISPLAY:+--ozone-platform-hint=auto --enable-features=WaylandWindowDecorations --enable-wayland-ime=true}}" \
+        --set-default LOCAL_GIT_DIRECTORY ${git} \
+        --inherit-argv0
+  ''
+  + lib.optionalString stdenv.hostPlatform.isDarwin ''
+    mkdir -p $out/Applications
+    cp -r static/out/*/Logseq.app $out/Applications
 
-      wrapProgram $out/Applications/Logseq.app/Contents/MacOS/Logseq \
-        --set-default LOCAL_GIT_DIRECTORY ${git}
+    wrapProgram $out/Applications/Logseq.app/Contents/MacOS/Logseq \
+      --set-default LOCAL_GIT_DIRECTORY ${git}
 
-      makeWrapper $out/Applications/Logseq.app/Contents/MacOS/Logseq $out/bin/logseq
-    ''
-    + ''
-      runHook postInstall
-    '';
+    makeWrapper $out/Applications/Logseq.app/Contents/MacOS/Logseq $out/bin/logseq
+  ''
+  + ''
+    runHook postInstall
+  '';
 
   desktopItems = [
     (makeDesktopItem {

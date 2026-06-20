@@ -3,7 +3,7 @@
   lib,
   vscode-utils,
   ruff,
-  vscode-extensions-update-script,
+  vscode-extension-update-script,
 }:
 
 vscode-utils.buildVscodeMarketplaceExtension {
@@ -12,26 +12,26 @@ vscode-utils.buildVscodeMarketplaceExtension {
       sources = {
         "x86_64-linux" = {
           arch = "linux-x64";
-          hash = "sha256-lGV/Zc4pibm7sTVtN4UYzuroxNgUltaUT9oJPaa5S8Q=";
+          hash = "sha256-qXGdFXx8Vr9oVStBjaeWEsQjhQUbp9MnLUfJtyhgwkA=";
         };
         "x86_64-darwin" = {
           arch = "darwin-x64";
-          hash = "sha256-h1cvTJ9VUHOL27F9twdbLTSzLb+NUhqrbaScoKF5jZ4=";
+          hash = "sha256-Bd3ool5Ep8I5iiTMUHF48r/sf3F1dROx6Umns0pDGzE=";
         };
         "aarch64-linux" = {
           arch = "linux-arm64";
-          hash = "sha256-Ca9DGjQDT5BbJUL7FtU3dS6Zb7C2Blxr69l5HpZR4ZQ=";
+          hash = "sha256-Jv2lrdvY0tthJM2fifUlCW/QBzEZAa8QDHj4o+a4KxY=";
         };
         "aarch64-darwin" = {
           arch = "darwin-arm64";
-          hash = "sha256-8Qay/ynixASQ8FFyAYjBeGcjBKQGXucGlOndOYa1Fn8=";
+          hash = "sha256-VooAoTyysIFH1AaidcoRs7fJpID0LbmWnLdivGZfdrM=";
         };
       };
     in
     {
       name = "ruff";
       publisher = "charliermarsh";
-      version = "2025.22.0";
+      version = "2026.48.0";
     }
     // sources.${stdenvNoCC.hostPlatform.system}
       or (throw "Unsupported system ${stdenvNoCC.hostPlatform.system}");
@@ -45,7 +45,7 @@ vscode-utils.buildVscodeMarketplaceExtension {
     ln -sf ${lib.getExe ruff} "$out/$installPrefix/bundled/libs/bin/ruff"
   '';
 
-  passthru.updateScript = vscode-extensions-update-script { extraArgs = [ "--platforms" ]; };
+  passthru.updateScript = vscode-extension-update-script { };
 
   meta = {
     license = lib.licenses.mit;

@@ -2,37 +2,45 @@
   lib,
   stdenv,
   buildNpmPackage,
-  nodejs_20,
   fetchFromGitHub,
-  cctools,
-  nix-update-script,
-  nixosTests,
+  nodejs_22,
   perl,
   xcbuild,
+  writableTmpDirAsHomeHook,
+  versionCheckHook,
+  nixosTests,
+  nix-update-script,
 }:
 
-buildNpmPackage rec {
+buildNpmPackage (finalAttrs: {
   pname = "bitwarden-cli";
-  version = "2025.3.0";
+  version = "2026.5.0";
 
   src = fetchFromGitHub {
     owner = "bitwarden";
     repo = "clients";
-    tag = "cli-v${version}";
-    hash = "sha256-SFwDyff3BHx0QKQZbhESUvjPT906/HGxGr1bA0PAvTQ=";
+    tag = "cli-v${finalAttrs.version}";
+    hash = "sha256-R00wt5W4kKmFIODEaGoUqDwfGyHH/2PpiRaC8Gq3d88=";
   };
 
   postPatch = ''
     # remove code under unfree license
     rm -r bitwarden_license
+
+    # Upstream cli-v2026.4.1 bumps @napi-rs/cli to 3.5.1 in the desktop workspace,
+    # but the root lockfile still points that entry at 3.2.0.
+    substituteInPlace package-lock.json \
+      --replace-fail \
+      $'    "apps/desktop/node_modules/@napi-rs/cli": {\n      "version": "3.2.0",\n      "resolved": "https://registry.npmjs.org/@napi-rs/cli/-/cli-3.2.0.tgz",\n      "integrity": "sha512-heyXt/9OBPv/WrTFW2+PxIMzH6MCeqP9ZsvOg0LN6pLngBnszcxFsdhCAh5I6sddzQsvru53zj59GUzvmpWk8Q==",' \
+      $'    "apps/desktop/node_modules/@napi-rs/cli": {\n      "version": "3.5.1",\n      "resolved": "https://registry.npmjs.org/@napi-rs/cli/-/cli-3.5.1.tgz",\n      "integrity": "sha512-XBfLQRDcB3qhu6bazdMJsecWW55kR85l5/k0af9BIBELXQSsCFU0fzug7PX8eQp6vVdm7W/U3z6uP5WmITB2Gw==",'
   '';
 
-  nodejs = nodejs_20;
+  nodejs = nodejs_22;
+  npmDepsFetcherVersion = 2;
 
-  npmDepsHash = "sha256-8sHagqyDqdGtY8IIOPq8hGYUdnkChR94wK4OWeuAgbc=";
+  npmDepsHash = "sha256-SU4HjfNshjRwa8mXPnmG2xVIwYkbQ7g8j3NZ43Ap76k=";
 
   nativeBuildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
-    cctools
     perl
     xcbuild.xcrun
   ];
@@ -61,9 +69,6 @@ buildNpmPackage rec {
     rm -r node_modules/**/prebuilds
     shopt -u globstar
 
-    # FIXME one of the esbuild versions fails to download @esbuild/linux-x64
-    rm -r node_modules/esbuild node_modules/vite/node_modules/esbuild
-
     npm rebuild --verbose
   '';
 
@@ -79,15 +84,25 @@ buildNpmPackage rec {
     # leave dangling symlinks behind. They can be safely removed, because their source is
     # bundled via webpack and thus not needed at run-time.
     rm -rf $out/lib/node_modules/@bitwarden/clients/node_modules/{@bitwarden,.bin}
+  ''
+  + lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+    installShellCompletion --cmd bw --zsh <($out/bin/bw completion --shell zsh)
   '';
 
+  doInstallCheck = true;
+  nativeInstallCheckInputs = [
+    writableTmpDirAsHomeHook
+    versionCheckHook
+  ];
+  versionCheckKeepEnvironment = [ "HOME" ];
+
   passthru = {
+    inherit (finalAttrs) npmDeps;
     tests = {
       vaultwarden = nixosTests.vaultwarden.sqlite;
     };
     updateScript = nix-update-script {
       extraArgs = [
-        "--commit"
         "--version=stable"
         "--version-regex=^cli-v(.*)$"
       ];
@@ -95,11 +110,15 @@ buildNpmPackage rec {
   };
 
   meta = {
-    changelog = "https://github.com/bitwarden/clients/releases/tag/${src.tag}";
+    changelog = "https://github.com/bitwarden/clients/releases/tag/${finalAttrs.src.tag}";
     description = "Secure and free password manager for all of your devices";
     homepage = "https://bitwarden.com";
     license = lib.licenses.gpl3Only;
     mainProgram = "bw";
-    maintainers = with lib.maintainers; [ dotlambda ];
+    maintainers = with lib.maintainers; [
+      xiaoxiangmoe
+      dotlambda
+      caverav
+    ];
   };
-}
+})

@@ -1,22 +1,23 @@
 {
   lib,
+  stdenv,
   buildGoModule,
   fetchFromGitHub,
   installShellFiles,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "glooctl";
-  version = "1.18.13";
+  version = "1.21.7";
 
   src = fetchFromGitHub {
     owner = "solo-io";
     repo = "gloo";
-    rev = "v${version}";
-    hash = "sha256-qn4hQKl3E36q7HsgOVWz+eRceKGysyy5rHXzQnOc7JY=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-bEFf6paNWstNftUZ3YDKkZmfSp4y4Q3k64p8r1yxzw4=";
   };
 
-  vendorHash = "sha256-lcnsmeZ2XobBE95KqIhUZCKmevg2WEGuZC4qUVkdafM=";
+  vendorHash = "sha256-1bY+69XKEmcV+8HV2X2JYA6S9A29KbHTLaXSZbkFbhg=";
 
   subPackages = [ "projects/gloo/cli/cmd" ];
 
@@ -26,7 +27,7 @@ buildGoModule rec {
 
   ldflags = [
     "-s"
-    "-X github.com/solo-io/gloo/pkg/version.Version=${version}"
+    "-X github.com/solo-io/gloo/pkg/version.Version=${finalAttrs.version}"
   ];
 
   preCheck = ''
@@ -35,6 +36,8 @@ buildGoModule rec {
 
   postInstall = ''
     mv $out/bin/cmd $out/bin/glooctl
+  ''
+  + lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
     installShellCompletion --cmd glooctl \
       --bash <($out/bin/glooctl completion bash) \
       --zsh <($out/bin/glooctl completion zsh)
@@ -44,8 +47,8 @@ buildGoModule rec {
     description = "Unified CLI for Gloo, the feature-rich, Kubernetes-native, next-generation API gateway built on Envoy";
     mainProgram = "glooctl";
     homepage = "https://docs.solo.io/gloo-edge/latest/reference/cli/glooctl/";
-    changelog = "https://github.com/solo-io/gloo/releases/tag/v${version}";
+    changelog = "https://github.com/solo-io/gloo/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.asl20;
     maintainers = [ ];
   };
-}
+})

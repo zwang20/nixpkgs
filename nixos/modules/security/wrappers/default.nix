@@ -168,7 +168,7 @@ let
       chmod "u${if setuid then "+" else "-"}s,g${if setgid then "+" else "-"}s,${permissions}" "$wrapperDir/${program}"
     '';
 
-  mkWrappedPrograms = builtins.map (
+  mkWrappedPrograms = map (
     opts: if opts.capabilities != "" then mkSetcapProgram opts else mkSetuidProgram opts
   ) (lib.attrValues wrappers);
 in
@@ -181,8 +181,23 @@ in
   ###### interface
 
   options = {
-    security.enableWrappers = lib.mkEnableOption "SUID/SGID wrappers" // {
+    security.enableWrappers = lib.mkEnableOption "" // {
       default = true;
+      description = ''
+        Whether to enable SUID/SGID wrappers.
+
+        ::: {.warning}
+        ONLY DISABLE THIS OPTION IF YOU KNOW WHAT YOU'RE DOING.
+        :::
+
+        A normal interactive NixOS system requires SUID/SGID wrappers (e.g. for
+        PAM and sudo). Disabling them, thus will lock you out from your system.
+
+        Disabling the SUID/SGID binaries is useful for non-interactive systems
+        (like a firewall appliance) to minimize the attack surface. In the
+        future, this might become available for interactive systems as well
+        (e.g. with systemd's [run0](https://www.freedesktop.org/software/systemd/man/latest/run0)).
+      '';
     };
 
     security.wrappers = lib.mkOption {
@@ -266,8 +281,6 @@ in
       in
       {
         # These are mount related wrappers that require the +s permission.
-        fusermount = mkSetuidRoot "${lib.getBin pkgs.fuse}/bin/fusermount";
-        fusermount3 = mkSetuidRoot "${lib.getBin pkgs.fuse3}/bin/fusermount3";
         mount = mkSetuidRoot "${lib.getBin pkgs.util-linux}/bin/mount";
         umount = mkSetuidRoot "${lib.getBin pkgs.util-linux}/bin/umount";
       };
@@ -296,11 +309,11 @@ in
         where = parentWrapperDir;
         what = "tmpfs";
         type = "tmpfs";
-        options = lib.concatStringsSep "," ([
+        options = lib.concatStringsSep "," [
           "nodev"
           "mode=755"
           "size=${config.security.wrapperDirSize}"
-        ]);
+        ];
       }
     ];
 
@@ -318,6 +331,7 @@ in
         "/nix/store"
         "/run/wrappers"
       ];
+      serviceConfig.RestrictSUIDSGID = false;
       serviceConfig.Type = "oneshot";
       script = ''
         chmod 755 "${parentWrapperDir}"

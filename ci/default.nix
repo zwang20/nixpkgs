@@ -1,61 +1,40 @@
 let
-  pinnedNixpkgs = builtins.fromJSON (builtins.readFile ./pinned-nixpkgs.json);
+  pinned = (builtins.fromJSON (builtins.readFile ./pinned.json)).pins;
 in
 {
   system ? builtins.currentSystem,
 
   nixpkgs ? null,
+  nixPath ? "nixVersions.latest",
 }:
 let
   nixpkgs' =
     if nixpkgs == null then
       fetchTarball {
-        url = "https://github.com/NixOS/nixpkgs/archive/${pinnedNixpkgs.rev}.tar.gz";
-        sha256 = pinnedNixpkgs.sha256;
+        inherit (pinned.nixpkgs) url;
+        sha256 = pinned.nixpkgs.hash;
       }
     else
       nixpkgs;
 
   pkgs = import nixpkgs' {
     inherit system;
-    config = { };
-    overlays = [ ];
+    # Nixpkgs generally — and CI specifically — do not use aliases,
+    # because we want to ensure they are not load-bearing.
+    allowAliases = false;
   };
 
   fmt =
     let
       treefmtNixSrc = fetchTarball {
-        # Master at 2025-02-12
-        url = "https://github.com/numtide/treefmt-nix/archive/4f09b473c936d41582dd744e19f34ec27592c5fd.tar.gz";
-        sha256 = "051vh6raskrxw5k6jncm8zbk9fhbzgm1gxpq9gm5xw1b6wgbgcna";
+        inherit (pinned.treefmt-nix) url;
+        sha256 = pinned.treefmt-nix.hash;
       };
-      treefmtEval = (import treefmtNixSrc).evalModule pkgs {
-        # Important: The auto-rebase script uses `git filter-branch --tree-filter`,
-        # which creates trees within the Git repository under `.git-rewrite/t`,
-        # notably without having a `.git` themselves.
-        # So if this projectRootFile were the default `.git/config`,
-        # having the auto-rebase script use treefmt on such a tree would make it
-        # format all files in the _parent_ Git tree as well.
-        projectRootFile = ".git-blame-ignore-revs";
-
-        # Be a bit more verbose by default, so we can see progress happening
-        settings.verbose = 1;
-
-        # By default it's info, which is too noisy since we have many unmatched files
-        settings.on-unmatched = "debug";
-
-        # This uses nixfmt-rfc-style underneath,
-        # the default formatter for Nix code.
-        # See https://github.com/NixOS/nixfmt
-        programs.nixfmt.enable = true;
-      };
+      treefmtEval = (import treefmtNixSrc).evalModule pkgs ./treefmt.nix;
       fs = pkgs.lib.fileset;
       nixFilesSrc = fs.toSource {
         root = ../.;
-        fileset = fs.difference (fs.unions [
-          (fs.fileFilter (file: file.hasExt "nix") ../.)
-          ../.git-blame-ignore-revs
-        ]) (fs.maybeMissing ../.git);
+        fileset = fs.difference ../. (fs.maybeMissing ../.git);
       };
     in
     {
@@ -65,9 +44,41 @@ let
     };
 
 in
-{
+rec {
   inherit pkgs fmt;
-  requestReviews = pkgs.callPackage ./request-reviews { };
   codeownersValidator = pkgs.callPackage ./codeowners-validator { };
-  eval = pkgs.callPackage ./eval { };
+
+  # FIXME(lf-): it might be useful to test other Nix implementations
+  # (nixVersions.stable and Lix) here somehow at some point to ensure we don't
+  # have eval divergence.
+  eval = pkgs.callPackage ./eval {
+    nix = pkgs.lib.getAttrFromPath (pkgs.lib.splitString "." nixPath) pkgs;
+  };
+
+  # CI jobs
+  lib-tests = import ../lib/tests/release.nix { inherit pkgs; };
+  manual-nixos = (import ../nixos/release.nix { }).manual.${system} or null;
+  manual-nixpkgs = (import ../doc { inherit pkgs; });
+  nixpkgs-vet = pkgs.callPackage ./nixpkgs-vet.nix {
+    nix = pkgs.nixVersions.latest;
+  };
+  parse = pkgs.lib.recurseIntoAttrs {
+    nix_latest = pkgs.callPackage ./parse.nix { nix = pkgs.nixVersions.latest; };
+    nix_2_28 = pkgs.callPackage ./parse.nix { nix = pkgs.nixVersions.nix_2_28; };
+    lix = pkgs.callPackage ./parse.nix { nix = pkgs.lix; };
+    lix_latest = pkgs.callPackage ./parse.nix { nix = pkgs.lixPackageSets.latest.lix; };
+  };
+  shell = import ../shell.nix { inherit nixpkgs system; };
+  tarball = import ../pkgs/top-level/make-tarball.nix {
+    # Mirrored from top-level release.nix:
+    nixpkgs = {
+      outPath = pkgs.lib.cleanSource ../.;
+      revCount = 1234;
+      shortRev = "abcdef";
+      revision = "0000000000000000000000000000000000000000";
+    };
+    officialRelease = false;
+    inherit pkgs lib-tests;
+    nix = pkgs.nixVersions.latest;
+  };
 }

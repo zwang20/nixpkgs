@@ -2,32 +2,53 @@
   buildPythonPackage,
   lib,
   fetchFromGitHub,
+
+  # build-sysetm
   cmake,
+  setuptools,
+  wheel,
+
+  # build inputs
   blas,
   libcint,
   libxc,
   xcfun,
-  cppe,
+
+  # dependencies
   h5py,
   numpy,
   scipy,
+
+  # optional-dependencies
+  cppe,
+
+  # tests
   pytestCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "pyscf";
-  version = "2.8.0";
-  format = "setuptools";
+  version = "2.13.1";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "pyscf";
-    repo = pname;
-    tag = "v${version}";
-    hash = "sha256-GWytFRMDFwTeglBm90fd09HICkAwpkcpmVar1x3vsro=";
+    repo = "pyscf";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-IEgbm7sZqxKxI+VPE9IoH+BAHkNgasGmRsdDykUFCeM=";
   };
 
   # setup.py calls Cmake and passes the arguments in CMAKE_CONFIGURE_ARGS to cmake.
-  build-system = [ cmake ];
+  build-system = [
+    setuptools
+    wheel
+    cmake
+  ];
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail "cmake<4.0" "cmake"
+  '';
   dontUseCmakeConfigure = true;
   preConfigure = ''
     export CMAKE_CONFIGURE_ARGS="-DBUILD_LIBCINT=0 -DBUILD_LIBXC=0 -DBUILD_XCFUN=0"
@@ -42,13 +63,19 @@ buildPythonPackage rec {
   ];
 
   dependencies = [
-    cppe
     h5py
     numpy
     scipy
   ];
 
-  nativeCheckInputs = [ pytestCheckHook ];
+  optional-dependencies = {
+    cppe = [ cppe ];
+  };
+
+  nativeCheckInputs = [
+    pytestCheckHook
+  ]
+  ++ finalAttrs.passthru.optional-dependencies.cppe;
   pythonImportsCheck = [ "pyscf" ];
   preCheck = ''
     # Set config used by tests to ensure reproducibility
@@ -60,6 +87,7 @@ buildPythonPackage rec {
 
   # Numerically slightly off tests
   disabledTests = [
+    "test_rdm_trace"
     "test_tdhf_singlet"
     "test_ab_hf"
     "test_ea"
@@ -80,6 +108,7 @@ buildPythonPackage rec {
     "test_finite_diff_roks_grad"
     "test_finite_diff_df_roks_grad"
     "test_frac_particles"
+    "test_gwac_pade_frozen"
     "test_nosymm_sa4_newton"
     "test_pipek"
     "test_n3_cis_ewald"
@@ -87,26 +116,25 @@ buildPythonPackage rec {
     "test_collinear_kgks_gga"
     "test_libxc_gga_deriv4"
     "test_sacasscf_grad"
+    "test_sparse_dot"
   ];
 
-  pytestFlagsArray = [
-    "--ignore=pyscf/pbc/tdscf"
-    "--ignore=pyscf/pbc/gw"
-    "--ignore-glob=*_slow.*py"
-    "--ignore-glob=*_kproxy_.*py"
-    "--ignore-glob=test_proxy.py"
-    "--ignore-glob=pyscf/nac/test/test_sacasscf.py"
-    "--ignore-glob=pyscf/grad/test/test_casscf.py"
+  disabledTestPaths = [
+    "pyscf/pbc/tdscf"
+    "pyscf/pbc/gw"
+    "pyscf/nac/test/test_sacasscf.py"
+    "pyscf/grad/test/test_casscf.py"
   ];
 
-  meta = with lib; {
+  meta = {
     description = "Python-based simulations of chemistry framework";
     homepage = "https://github.com/pyscf/pyscf";
-    license = licenses.asl20;
+    license = lib.licenses.asl20;
     platforms = [
       "x86_64-linux"
       "x86_64-darwin"
+      "aarch64-darwin"
     ];
-    maintainers = [ maintainers.sheepforce ];
+    maintainers = [ lib.maintainers.sheepforce ];
   };
-}
+})

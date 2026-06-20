@@ -1,72 +1,88 @@
 {
   lib,
-  fetchPypi,
-  fetchpatch,
+  stdenv,
   buildPythonPackage,
-  pytestCheckHook,
-  libxslt,
-  libxml2,
-  libtool,
-  pkg-config,
-  xmlsec,
+  fetchFromGitHub,
+
+  # build-system
   pkgconfig,
   setuptools-scm,
+
+  # nativeBuildInputs
+  pkg-config,
+  # pkgconfig,
+
+  # buildInputs
+  libtool,
+  libxml2,
+  libxslt,
+  xmlsec,
+
+  # dependencies
   lxml,
+
+  # tests
   hypothesis,
+  pytestCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "xmlsec";
-  version = "1.3.14";
-  format = "pyproject";
+  version = "1.3.17";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-k0+ATy+JW824bx6u4ja2YQE1YO5p7BCNKc3W5fKSotk=";
+  src = fetchFromGitHub {
+    owner = "xmlsec";
+    repo = "python-xmlsec";
+    tag = finalAttrs.version;
+    hash = "sha256-p3V75DLUI2PKdharP3/0HrKOgma9Kh3lAOZLRAQjo80=";
   };
 
-  patches = [
-    # fixes build error with GCC 14
-    (fetchpatch {
-      url = "https://github.com/xmlsec/python-xmlsec/commit/67cd4ac73e4fceac4b4eb6a320067cad33f79213.patch";
-      hash = "sha256-zU34a2x3S48Hwvo/oDe5mfkZ3jBwdajIrKwKhTRSsko=";
-    })
-  ];
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail "setuptools==" "setuptools>="
+  '';
 
-  nativeBuildInputs = [
-    pkg-config
+  build-system = [
     pkgconfig
     setuptools-scm
   ];
 
-  buildInputs = [
-    xmlsec
-    libxslt
-    libxml2
-    libtool
+  nativeBuildInputs = [
+    pkg-config
   ];
 
-  propagatedBuildInputs = [ lxml ];
+  buildInputs = [
+    libtool
+    libxml2
+    libxslt
+    xmlsec
+  ];
+
+  dependencies = [ lxml ];
 
   nativeCheckInputs = [
-    pytestCheckHook
     hypothesis
+    pytestCheckHook
   ];
 
   disabledTestPaths = [
     # Full git clone required for test_doc_examples
     "tests/test_doc_examples.py"
-    # test_reinitialize_module segfaults python
-    # https://github.com/mehcode/python-xmlsec/issues/203
-    "tests/test_xmlsec.py"
+  ];
+
+  disabledTests = lib.optionals (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64) [
+    # AssertionError: memory leak detected
+    "test_reinitialize_module"
   ];
 
   pythonImportsCheck = [ "xmlsec" ];
 
-  meta = with lib; {
+  meta = {
     description = "Python bindings for the XML Security Library";
-    homepage = "https://github.com/mehcode/python-xmlsec";
-    license = licenses.mit;
-    maintainers = with maintainers; [ zhaofengli ];
+    homepage = "https://github.com/xmlsec/python-xmlsec";
+    changelog = "https://github.com/xmlsec/python-xmlsec/releases/tag/${finalAttrs.src.tag}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ zhaofengli ];
   };
-}
+})

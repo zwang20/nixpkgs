@@ -1,7 +1,7 @@
 {
   fetchzip,
   revision,
-  suffix,
+  browserVersion,
   system,
   throwSystem,
   stdenv,
@@ -10,11 +10,12 @@
 
   alsa-lib,
   at-spi2-atk,
+  expat,
   glib,
-  libXcomposite,
-  libXdamage,
-  libXfixes,
-  libXrandr,
+  libxcomposite,
+  libxdamage,
+  libxfixes,
+  libxrandr,
   libgbm,
   libgcc,
   libxkbcommon,
@@ -23,15 +24,20 @@
   ...
 }:
 let
+  download =
+    (import ./browser-downloads.nix {
+      name = "chromium-headless-shell";
+      inherit revision browserVersion;
+    }).${system} or throwSystem;
+
   linux = stdenv.mkDerivation {
     name = "playwright-chromium-headless-shell";
     src = fetchzip {
-      url = "https://playwright.azureedge.net/builds/chromium/${revision}/chromium-headless-shell-${suffix}.zip";
-      stripRoot = false;
+      inherit (download) url stripRoot;
       hash =
         {
-          x86_64-linux = "sha256-UNLSiI9jWLev2YwqiXuoHwJfdB4teNhEfQjQRBEo8uY=";
-          aarch64-linux = "sha256-aVGLcJHFER09frJdKsGW/pKPl5MXoXef2hy5WTA8rS4=";
+          x86_64-linux = "sha256-Nr0/uczFTBTqvRPR0c/wflIqG5relgKfC9XsMOdE9iE=";
+          aarch64-linux = "sha256-veEBmsivFDrG1bArQ780+gMbsoT1Zv4VLcIPpgn4M/I=";
         }
         .${system} or throwSystem;
     };
@@ -44,13 +50,14 @@ let
     buildInputs = [
       alsa-lib
       at-spi2-atk
+      expat
       glib
-      libXcomposite
-      libXdamage
-      libXfixes
-      libXrandr
+      libxcomposite
+      libxdamage
+      libxfixes
+      libxrandr
       libgbm
-      libgcc.lib
+      libgcc
       libxkbcommon
       nspr
       nss
@@ -62,12 +69,11 @@ let
   };
 
   darwin = fetchzip {
-    url = "https://playwright.azureedge.net/builds/chromium/${revision}/chromium-headless-shell-${suffix}.zip";
-    stripRoot = false;
+    inherit (download) url stripRoot;
     hash =
       {
-        x86_64-darwin = "sha256-c26ubAgM9gQPaYqobQyS3Y7wvMUmmdpDlrYmZJrUgho=";
-        aarch64-darwin = "sha256-XRFqlhVx+GuDxz/kDP8TtyPQfR0JbFD0qu5OSywGTX8=";
+        x86_64-darwin = "sha256-GEomMUuaIjhBEuWF/HyMohseJtwKOn5MCgh6kIB9ZeE=";
+        aarch64-darwin = "sha256-7laJtPAiy6pYAxCNBxRYk+FmriXemmLW8UYteEdVrd0=";
       }
       .${system} or throwSystem;
   };

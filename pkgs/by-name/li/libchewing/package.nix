@@ -1,35 +1,59 @@
 {
   lib,
   stdenv,
-  fetchFromGitHub,
+  fetchFromCodeberg,
   cmake,
   sqlite,
+  corrosion,
+  rustPlatform,
+  cargo,
+  rustc,
+  nix-update-script,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "libchewing";
-  version = "0.6.0";
+  version = "0.12.0";
 
-  src = fetchFromGitHub {
+  src = fetchFromCodeberg {
     owner = "chewing";
     repo = "libchewing";
-    rev = "v${finalAttrs.version}";
-    sha256 = "sha256-X+4Rr5Mfc4qeJxmHczu4MKgHBvQN1rhqUrJSx8SFnDk=";
+    tag = "v${finalAttrs.version}";
+    fetchSubmodules = true;
+    hash = "sha256-+oSO1HgLMF5+UcY+2NwQjPmspGqaPYuI7mdvSLrhkNg=";
   };
 
-  buildInputs = [ sqlite ];
+  # ld: unknown option: -version-script
+  postPatch = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    substituteInPlace CMakeLists.txt \
+      --replace-fail "if(CMAKE_C_COMPILER_ID MATCHES GNU|^Clang)" "if((CMAKE_C_COMPILER_ID MATCHES GNU|^Clang) AND NOT APPLE)"
+  '';
 
-  nativeBuildInputs = [ cmake ];
+  cargoDeps = rustPlatform.fetchCargoVendor {
+    inherit (finalAttrs) src;
+    hash = "sha256-TcNhoGCN+S/Tt3IdysVnGmXNl+hXQoWMppp8yN9N0NY=";
+  };
 
-  meta = with lib; {
+  nativeBuildInputs = [
+    cmake
+    rustPlatform.cargoSetupHook
+    cargo
+    rustc
+  ];
+
+  buildInputs = [
+    sqlite
+    corrosion
+  ];
+
+  passthru.updateScript = nix-update-script { };
+
+  meta = {
     description = "Intelligent Chinese phonetic input method";
     homepage = "https://chewing.im/";
-    license = licenses.lgpl21Only;
-    maintainers = with maintainers; [
-      ericsagnes
-      ShamrockLee
-    ];
-    platforms = platforms.all;
+    license = lib.licenses.lgpl21Only;
+    maintainers = with lib.maintainers; [ ShamrockLee ];
+    platforms = lib.platforms.all;
     # compile time tools init_database, dump_database are built for host
     broken = !stdenv.buildPlatform.canExecute stdenv.hostPlatform;
   };

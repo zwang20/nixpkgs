@@ -16,19 +16,18 @@
 let
   desc = "Private, polished note-taking platform";
 in
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "lockbook-desktop";
-  version = "0.9.21";
+  version = "26.6.1";
 
   src = fetchFromGitHub {
     owner = "lockbook";
     repo = "lockbook";
-    tag = version;
-    hash = "sha256-SRmfLxF78jR1a/37pU1TLM6nFpmYLRbHJzQIVQtM8/M=";
+    tag = finalAttrs.version;
+    hash = "sha256-+r5WsaqQr6NlQNWDTQf/tvCh6P5LpFFyyLMTIZw9yis=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-faqbsxXF2AjDE+FMkD1PihacPAvQlD6nkczN4QdsCeM=";
+  cargoHash = "sha256-ybAcG7sCEwZC6FxWx2KhHd1HkhK8wwkGeeLoI/KOXKU=";
 
   nativeBuildInputs = [
     pkg-config
@@ -69,7 +68,7 @@ rustPlatform.buildRustPackage rec {
 
   postInstall = ''
     mv $out/bin/lockbook-linux $out/bin/lockbook-desktop
-    install -D public_site/favicon.svg $out/share/icons/hicolor/scalable/apps/lockbook.svg
+    install -D docs/graphics/logo.svg $out/share/icons/hicolor/scalable/apps/lockbook.svg
   '';
 
   meta = {
@@ -84,7 +83,7 @@ rustPlatform.buildRustPackage rec {
     homepage = "https://lockbook.net";
     license = lib.licenses.unlicense;
     platforms = lib.platforms.linux;
-    changelog = "https://github.com/lockbook/lockbook/releases/tag/${version}";
+    changelog = "https://github.com/lockbook/lockbook/releases/tag/${finalAttrs.version}";
     maintainers = [ lib.maintainers.parth ];
   };
-}
+})

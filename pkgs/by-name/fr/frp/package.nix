@@ -1,22 +1,24 @@
 {
   buildGoModule,
+  callPackage,
   lib,
   fetchFromGitHub,
   nixosTests,
 }:
-
-buildGoModule rec {
+let
+  web = callPackage ./dashboard.nix { };
+in
+buildGoModule (finalAttrs: {
   pname = "frp";
-  version = "0.61.2";
-
+  version = "0.69.1";
   src = fetchFromGitHub {
     owner = "fatedier";
-    repo = pname;
-    rev = "v${version}";
-    hash = "sha256-speKU15zsg7jpPP3X6/QovHWtQxzHbVMWz4YLsZhE8A=";
+    repo = "frp";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-3tOOgnzZZ05En5NMLbp4UFNazX950Jbosvszmjf947c=";
   };
 
-  vendorHash = "sha256-ZKhOBD6rLcZtllSQxkpYbHLyb3Ga2teZnGr8jJcETKQ=";
+  vendorHash = "sha256-JrkIztnmhEYAogr4pDWrPu9/j+C0VLpEyNbh2UK5UcY=";
 
   doCheck = false;
 
@@ -25,11 +27,17 @@ buildGoModule rec {
     "cmd/frps"
   ];
 
-  passthru.tests = {
-    frp = nixosTests.frp;
+  preBuild = ''
+    cp -r ${web.frpc} web/frpc/dist
+    cp -r ${web.frps} web/frps/dist
+  '';
+
+  passthru = {
+    tests.frp = nixosTests.frp;
+    inherit web;
   };
 
-  meta = with lib; {
+  meta = {
     description = "Fast reverse proxy";
     longDescription = ''
       frp is a fast reverse proxy to help you expose a local server behind a
@@ -38,7 +46,7 @@ buildGoModule rec {
       internal services by domain name. frp also has a P2P connect mode.
     '';
     homepage = "https://github.com/fatedier/frp";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ Br1ght0ne ];
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ epireyn ];
   };
-}
+})

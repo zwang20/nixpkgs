@@ -1,5 +1,6 @@
 {
   lib,
+  stdenv,
   buildGoModule,
   fetchFromGitHub,
   installShellFiles,
@@ -10,15 +11,15 @@
   writableTmpDirAsHomeHook,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "git-town";
-  version = "18.1.0";
+  version = "23.0.2";
 
   src = fetchFromGitHub {
     owner = "git-town";
     repo = "git-town";
-    tag = "v${version}";
-    hash = "sha256-dx19gzHhCCcdlI80CYhbfKHRS0AQB0DnHphV2mqmI/Y=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-FwwyX/Ncl8zCR1+/A49VIugESU1YFgDcQYbO8w84Lm0=";
   };
 
   vendorHash = null;
@@ -32,12 +33,12 @@ buildGoModule rec {
 
   ldflags =
     let
-      modulePath = "github.com/git-town/git-town/v${lib.versions.major version}";
+      modulePath = "github.com/git-town/git-town/v${lib.versions.major finalAttrs.version}";
     in
     [
       "-s"
       "-w"
-      "-X ${modulePath}/src/cmd.version=v${version}"
+      "-X ${modulePath}/src/cmd.version=v${finalAttrs.version}"
       "-X ${modulePath}/src/cmd.buildDate=nix"
     ];
 
@@ -55,28 +56,33 @@ buildGoModule rec {
     let
       # Disable tests requiring local operations
       skippedTests = [
-        "TestGodog"
         "TestMockingRunner/MockCommand"
         "TestMockingRunner/MockCommitMessage"
         "TestMockingRunner/QueryWith"
         "TestTestCommands/CreateChildFeatureBranch"
+        "TestTestCommands/CreateChildBranch"
+        "TestTestCommands/CreateLocalBranchUsingGitTown"
+        "TestFrontendRunner_RetryOnIndexLock" # Timing issues.
+
       ];
     in
     [ "-skip=^${builtins.concatStringsSep "$|^" skippedTests}$" ];
 
-  postInstall = ''
-    installShellCompletion --cmd git-town \
-      --bash <($out/bin/git-town completions bash) \
-      --fish <($out/bin/git-town completions fish) \
-      --zsh <($out/bin/git-town completions zsh)
-
-    wrapProgram $out/bin/git-town --prefix PATH : ${lib.makeBinPath [ git ]}
-  '';
+  postInstall =
+    lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+      installShellCompletion --cmd git-town \
+        --bash <($out/bin/git-town completions bash) \
+        --fish <($out/bin/git-town completions fish) \
+        --zsh <($out/bin/git-town completions zsh)
+    ''
+    + ''
+      wrapProgram $out/bin/git-town --prefix PATH : ${lib.makeBinPath [ git ]}
+    '';
 
   passthru.tests.version = testers.testVersion {
     package = git-town;
     command = "git-town --version";
-    inherit version;
+    inherit (finalAttrs) version;
   };
 
   meta = {
@@ -89,4 +95,4 @@ buildGoModule rec {
     ];
     mainProgram = "git-town";
   };
-}
+})

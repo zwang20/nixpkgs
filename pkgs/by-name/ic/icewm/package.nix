@@ -1,6 +1,6 @@
 {
   lib,
-  stdenv,
+  gccStdenv,
   fetchFromGitHub,
   cmake,
   expat,
@@ -14,41 +14,41 @@
   giflib,
   glib,
   imlib2,
-  libICE,
-  libSM,
-  libX11,
-  libXcomposite,
-  libXdamage,
-  libXdmcp,
-  libXext,
-  libXfixes,
-  libXft,
-  libXinerama,
-  libXpm,
-  libXrandr,
+  libice,
+  libsm,
+  libx11,
+  libxcomposite,
+  libxdamage,
+  libxdmcp,
+  libxext,
+  libxfixes,
+  libxft,
+  libxinerama,
+  libxpm,
+  libxrandr,
   libjpeg,
   libogg,
   libpng,
-  libpthreadstubs,
+  libpthread-stubs,
   libsndfile,
   libtiff,
   libxcb,
+  libxcursor,
   mkfontdir,
   pcre2,
   perl,
   pkg-config,
-  fetchpatch,
 }:
 
-stdenv.mkDerivation (finalAttrs: {
+gccStdenv.mkDerivation (finalAttrs: {
   pname = "icewm";
-  version = "3.7.1";
+  version = "4.0.0";
 
   src = fetchFromGitHub {
     owner = "ice-wm";
     repo = "icewm";
-    rev = finalAttrs.version;
-    hash = "sha256-4JF2ZAp8dx2fpSYRUz4I8US3oIZrSS90oljuxQDm38A=";
+    tag = finalAttrs.version;
+    hash = "sha256-4+nW8JJ3CDEPOZZ4p0EZM86h+rAifTuGDZxoFMUI7K0=";
   };
 
   strictDeps = true;
@@ -72,38 +72,28 @@ stdenv.mkDerivation (finalAttrs: {
     giflib
     glib
     imlib2
-    libICE
-    libSM
-    libX11
-    libXcomposite
-    libXdamage
-    libXdmcp
-    libXext
-    libXfixes
-    libXft
-    libXinerama
-    libXpm
-    libXrandr
+    libice
+    libsm
+    libx11
+    libxcomposite
+    libxdamage
+    libxdmcp
+    libxext
+    libxfixes
+    libxft
+    libxinerama
+    libxpm
+    libxrandr
     libjpeg
     libogg
     libpng
-    libpthreadstubs
+    libpthread-stubs
     libsndfile
     libtiff
     libxcb
+    libxcursor
     mkfontdir
     pcre2
-  ];
-
-  patches = [
-    # https://github.com/NixOS/nixpkgs/issues/385959
-    # https://github.com/bbidulock/icewm/issues/794
-    # TODO: remove this patch when it is included in a release
-    (fetchpatch {
-      name = "fdomenu-icons-quoted";
-      url = "https://github.com/bbidulock/icewm/commit/74bb0a2989127a3ff87d2932ff547713bc710cfe.patch";
-      hash = "sha256-/rMSJYGAJs9cgNu5j4Mov/PfO7ocXQeNRq0vasfRcKA=";
-    })
   ];
 
   cmakeFlags = [
@@ -111,14 +101,17 @@ stdenv.mkDerivation (finalAttrs: {
     "-DCFGDIR=/etc/icewm"
   ];
 
+  env.NIX_CFLAGS_COMPILE = lib.optionalString gccStdenv.hostPlatform.isDarwin "-D_DARWIN_C_SOURCE";
+
   # install legacy themes
   postInstall = ''
     cp -r ../lib/themes/{gtk2,Natural,nice,nice2,warp3,warp4,yellowmotif} \
       $out/share/icewm/themes/
   '';
 
-  meta = with lib; {
+  meta = {
     homepage = "https://ice-wm.org/";
+    changelog = "https://github.com/ice-wm/icewm/releases/tag/${finalAttrs.src.tag}";
     description = "Simple, lightweight X window manager";
     longDescription = ''
       IceWM is a window manager for the X Window System. The goal of IceWM is
@@ -133,8 +126,8 @@ stdenv.mkDerivation (finalAttrs: {
       optional external background wallpaper manager with transparency support,
       a simple session manager and a system tray.
     '';
-    license = licenses.lgpl2Only;
+    license = lib.licenses.lgpl2Only;
     maintainers = [ ];
-    platforms = platforms.linux;
+    platforms = lib.platforms.unix;
   };
 })

@@ -10,16 +10,16 @@
 
 buildPythonPackage rec {
   pname = "homeassistant-stubs";
-  version = "2025.3.4";
+  version = "2026.6.4";
   pyproject = true;
 
-  disabled = python.version != home-assistant.python.version;
+  disabled = python.version != home-assistant.python3Packages.python.version;
 
   src = fetchFromGitHub {
     owner = "KapJI";
     repo = "homeassistant-stubs";
     tag = version;
-    hash = "sha256-HO1A1uLGNnFdigmoZVL+T28f1Oh+6t1pDUa+nh84MLA=";
+    hash = "sha256-nfBY+nXBv0ZrXXr0Be/0xttYMncx7NmMPbAbx6D00SU=";
   };
 
   build-system = [
@@ -46,6 +46,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/KapJI/homeassistant-stubs";
     changelog = "https://github.com/KapJI/homeassistant-stubs/releases/tag/${src.tag}";
     license = lib.licenses.mit;
-    maintainers = lib.teams.home-assistant.members;
+    teams = [ lib.teams.home-assistant ];
   };
 }

@@ -20,20 +20,20 @@
   desktop-file-utils,
   versionCheckHook,
 }:
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "tsukimi";
-  version = "0.20.0";
+  version = "26.6.1";
 
   src = fetchFromGitHub {
     owner = "tsukinaha";
     repo = "tsukimi";
-    tag = "v${version}";
-    hash = "sha256-OxRxl/+JP3eqxc5b0pb6QbAAHrZgHrq1cawas2UrUro=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-fJT5o9GOQB5TIlbqTRcMCaf5OYYW+D19dNPbLFqViCg=";
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit src;
-    hash = "sha256-kt3otu5N3KAzJT992v80Mbgr0sOoPnonc1+pu5ANIxE=";
+    inherit (finalAttrs) src;
+    hash = "sha256-Rdne9EQ9QSZ2RlYWEFEy9/OZEdIucQ/nB1Z8MJ0gAsU=";
   };
 
   nativeBuildInputs = [
@@ -47,26 +47,24 @@ stdenv.mkDerivation rec {
     desktop-file-utils
   ];
 
-  buildInputs =
-    [
-      mpv-unwrapped
-      ffmpeg
-      libadwaita
-      openssl
-      libepoxy
-      dbus
-    ]
-    ++ (with gst_all_1; [
-      gstreamer
-      gst-plugins-base
-      gst-plugins-good
-      gst-plugins-bad
-      gst-plugins-ugly
-      gst-libav
-    ]);
+  buildInputs = [
+    mpv-unwrapped
+    ffmpeg
+    libadwaita
+    openssl
+    libepoxy
+    dbus
+  ]
+  ++ (with gst_all_1; [
+    gstreamer
+    gst-plugins-base
+    gst-plugins-good
+    gst-plugins-bad
+    gst-plugins-ugly
+    gst-libav
+  ]);
 
   nativeInstallCheckInputs = [ versionCheckHook ];
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   passthru.updateScript = nix-update-script { };
@@ -82,4 +80,4 @@ stdenv.mkDerivation rec {
     mainProgram = "tsukimi";
     platforms = lib.platforms.linux;
   };
-}
+})

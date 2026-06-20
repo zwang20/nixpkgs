@@ -2,11 +2,9 @@
   lib,
   buildPythonPackage,
   fetchPypi,
-  pythonOlder,
   setuptools,
   setuptools-scm,
   packaging,
-  tomli,
 
   # tests
   poppler-qt5,
@@ -16,12 +14,12 @@
 
 buildPythonPackage rec {
   pname = "sip";
-  version = "6.9.1";
+  version = "6.15.1";
   pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-eQS+UZDXh5lSVjt4o68OWPon2VJa9/U/k+rHqDtDPns=";
+    hash = "sha256-3C5YwXmKdOGzHCjoNzOYIv6PpVKIrjDomG6ygQDrylo=";
   };
 
   build-system = [
@@ -32,7 +30,7 @@ buildPythonPackage rec {
   dependencies = [
     packaging
     setuptools
-  ] ++ lib.optionals (pythonOlder "3.11") [ tomli ];
+  ];
 
   # There aren't tests
   doCheck = false;
@@ -44,10 +42,10 @@ buildPythonPackage rec {
     inherit poppler-qt5 qgis qgis-ltr;
   };
 
-  meta = with lib; {
+  meta = {
     description = "Creates C++ bindings for Python modules";
     homepage = "https://riverbankcomputing.com/";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ ];
+    license = lib.licenses.gpl3Only;
+    maintainers = [ ];
   };
 }

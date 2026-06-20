@@ -6,29 +6,25 @@
   nix-update-script,
   act,
 }:
-
-let
-  version = "0.2.76";
-in
-buildGoModule {
+buildGoModule (finalAttrs: {
   pname = "act";
-  inherit version;
+  version = "0.2.89";
 
   src = fetchFromGitHub {
     owner = "nektos";
     repo = "act";
-    tag = "v${version}";
-    hash = "sha256-9Pn4Yzc0ZjOJy0ktJl/C1OXHkJ4vZrA0d4FJTooLvWU=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-K3+JJHadA/+aayI5XtGBLgFRbCuu6Uilm45kumnlZUw=";
   };
 
-  vendorHash = "sha256-ak7JFh739SoHeiEWLjthqAn1KHamGujYJNa3ZIdhLLQ=";
+  vendorHash = "sha256-Gp4Bxq0n1gmqHwrggSonMsFbWMVeCIgeVKY1U1Oe6lU=";
 
   doCheck = false;
 
   ldflags = [
     "-s"
     "-w"
-    "-X main.version=${version}"
+    "-X main.version=${finalAttrs.version}"
   ];
 
   passthru = {
@@ -43,11 +39,11 @@ buildGoModule {
     description = "Run your GitHub Actions locally";
     mainProgram = "act";
     homepage = "https://github.com/nektos/act";
-    changelog = "https://github.com/nektos/act/releases/tag/v${version}";
+    changelog = "https://github.com/nektos/act/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [
-      Br1ght0ne
       kashw2
+      miniharinn
     ];
   };
-}
+})

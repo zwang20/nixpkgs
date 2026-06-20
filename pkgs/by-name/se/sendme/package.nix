@@ -1,40 +1,33 @@
 {
   lib,
-  stdenv,
   fetchFromGitHub,
   rustPlatform,
-  darwin,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "sendme";
-  version = "0.25.0";
+  version = "0.33.0";
 
   src = fetchFromGitHub {
     owner = "n0-computer";
     repo = "sendme";
-    rev = "v${version}";
-    hash = "sha256-OmP2FLvBupeJeGhMMBgcTpMSgQZ5JWzXBVeFZt7EU4Q=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-Y7aaBm6KG+b8eEr2W8jmN2Ws3y0Dzkk848af3yse1/8=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-8Ry3rpGTNcvMIA3Q10Cb3uJHOBQin9AhlLNRekaKw/0=";
+  cargoHash = "sha256-J4ctZ1a7pSKVTi1BAHRZMNLrfrODWKDrgsBRZN/24DM=";
 
-  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin (
-    with darwin.apple_sdk.frameworks;
-    [
-      SystemConfiguration
-    ]
-  );
+  # The tests require contacting external servers.
+  doCheck = false;
 
-  meta = with lib; {
+  meta = {
     description = "Tool to send files and directories, based on iroh";
     homepage = "https://iroh.computer/sendme";
-    license = with licenses; [
+    license = with lib.licenses; [
       asl20
       mit
     ];
-    maintainers = with maintainers; [ cameronfyfe ];
+    maintainers = [ ];
     mainProgram = "sendme";
   };
-}
+})

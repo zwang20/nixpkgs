@@ -7,19 +7,18 @@
   libiconv,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "fselect";
-  version = "0.8.11";
+  version = "0.10.1";
 
   src = fetchFromGitHub {
     owner = "jhspetersson";
     repo = "fselect";
-    rev = version;
-    sha256 = "sha256-S7SFcOhFl5dVgUl2qlsE/Bizq8v0NPKPqBggzPGoOu8=";
+    rev = finalAttrs.version;
+    sha256 = "sha256-eu2OAxdhDaKewMKL02rj8ED6tfB9OI3br7g0WoKOejk=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-r6GKJGJThaaawHcL+IL29Vy/NXmA75eswEBWDS/zs1g=";
+  cargoHash = "sha256-6XV8O3Ko4NKw5PaVbazrh6LQ0eQpbiPh/cB3Y9dkcb8=";
 
   nativeBuildInputs = [ installShellFiles ];
   buildInputs = lib.optional stdenv.hostPlatform.isDarwin libiconv;
@@ -28,14 +27,16 @@ rustPlatform.buildRustPackage rec {
     installManPage docs/fselect.1
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Find files with SQL-like queries";
     homepage = "https://github.com/jhspetersson/fselect";
-    license = with licenses; [
+    license = with lib.licenses; [
       asl20
       mit
     ];
-    maintainers = with maintainers; [ Br1ght0ne ];
+    maintainers = with lib.maintainers; [
+      matthiasbeyer
+    ];
     mainProgram = "fselect";
   };
-}
+})

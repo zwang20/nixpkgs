@@ -3,25 +3,30 @@
   stdenv,
   fetchFromGitHub,
   makeWrapper,
-  nodejs,
+  nodejs_24,
   pnpm_10,
+  fetchPnpmDeps,
+  pnpmConfigHook,
   python3,
   testers,
   xcbuild,
   nixosTests,
   nix-update-script,
   yq-go,
+  cctools,
 }:
-
+let
+  nodejs = nodejs_24;
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "renovate";
-  version = "39.208.1";
+  version = "43.214.1";
 
   src = fetchFromGitHub {
     owner = "renovatebot";
     repo = "renovate";
     tag = finalAttrs.version;
-    hash = "sha256-Y4EJCbIK3XZAilbf/zMEfjEDYHNrUrAGRfsNmY0h/Bw=";
+    hash = "sha256-S5ixP4Dp/YDv23kE5lvmp/Px6GrF9B6/wwSiKUwVWhA=";
   };
 
   postPatch = ''
@@ -32,44 +37,52 @@ stdenv.mkDerivation (finalAttrs: {
   nativeBuildInputs = [
     makeWrapper
     nodejs
-    pnpm_10.configHook
+    pnpmConfigHook
+    pnpm_10
     python3
     yq-go
-  ] ++ lib.optional stdenv.hostPlatform.isDarwin xcbuild;
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    xcbuild
+    cctools # contains libtool, required by better-sqlite3
+  ];
 
-  pnpmDeps = pnpm_10.fetchDeps {
+  pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    hash = "sha256-5KGTt6lx44LNpHG/RelCQ1ZlQOMOL6bJi66M2nCiirg=";
+    pnpm = pnpm_10;
+    fetcherVersion = 3;
+    hash = "sha256-A8aL5ZF0tFKi0uCXxOQMzxByAIVyt76wnLvolFVYKuI=";
   };
 
   env.COREPACK_ENABLE_STRICT = 0;
 
-  buildPhase =
-    ''
-      runHook preBuild
+  buildPhase = ''
+    runHook preBuild
 
-      # relax nodejs version
-      yq '.engines.node = "${nodejs.version}"' -i package.json
+    # relax nodejs version
+    yq '.engines.node = "${nodejs.version}"' -i package.json
 
-      pnpm build
-      find -name 'node_modules' -type d -exec rm -rf {} \; || true
-      pnpm install --offline --prod --ignore-scripts
-    ''
-    # The optional dependency re2 is not built by pnpm and needs to be built manually.
-    # If re2 is not built, you will get an annoying warning when you run renovate.
-    + ''
-      pushd node_modules/.pnpm/re2*/node_modules/re2
+    pnpm build
+    find -name 'node_modules' -type d -exec rm -rf {} \; || true
+    pnpm install --offline --prod --ignore-scripts
+  ''
+  # The optional dependencies re2 and better-sqlite3 are not built by pnpm and need to be built manually.
+  # If re2 is not built, you will get an annoying warning when you run renovate.
+  # better-sqlite3 is required.
+  + ''
+    pushd node_modules/.pnpm/re2*/node_modules/re2
 
-      mkdir -p $HOME/.node-gyp/${nodejs.version}
-      echo 9 > $HOME/.node-gyp/${nodejs.version}/installVersion
-      ln -sfv ${nodejs}/include $HOME/.node-gyp/${nodejs.version}
-      export npm_config_nodedir=${nodejs}
-      npm run rebuild
+    mkdir -p $HOME/.node-gyp/${nodejs.version}
+    echo 9 > $HOME/.node-gyp/${nodejs.version}/installVersion
+    ln -sfv ${nodejs}/include $HOME/.node-gyp/${nodejs.version}
+    export npm_config_nodedir=${nodejs}
+    npm run rebuild
+    rm -rf build/Release/{obj.target,.deps} vendor
 
-      popd
+    popd
 
-      runHook postBuild
-    '';
+    runHook postBuild
+  '';
 
   # TODO: replace with `pnpm deploy`
   # now it fails to build with ERR_PNPM_NO_OFFLINE_META
@@ -93,7 +106,12 @@ stdenv.mkDerivation (finalAttrs: {
       version = testers.testVersion { package = finalAttrs.finalPackage; };
       vm-test = nixosTests.renovate;
     };
-    updateScript = nix-update-script { };
+    updateScript = nix-update-script {
+      extraArgs = [
+        "--version-regex"
+        "^(\\d+\\.\\d+\\.\\d+)$"
+      ];
+    };
   };
 
   meta = {

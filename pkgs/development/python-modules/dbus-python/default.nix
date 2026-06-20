@@ -20,7 +20,7 @@ lib.fix (
   finalPackage:
   buildPythonPackage rec {
     pname = "dbus-python";
-    version = "1.3.2";
+    version = "1.4.0";
     pyproject = true;
 
     disabled = isPyPy;
@@ -32,7 +32,7 @@ lib.fix (
 
     src = fetchPypi {
       inherit pname version;
-      hash = "sha256-rWeBkwhhi1BpU3viN/jmjKHH/Mle5KEh/mhFsUGCSPg=";
+      hash = "sha256-mRZm5Jj2Db8+Sbi3Z49VWbimUDT99hquYs3s232Jx3A=";
     };
 
     patches = [
@@ -48,9 +48,6 @@ lib.fix (
       # we provide patchelf natively, not through the python package
       sed -i '/patchelf/d' pyproject.toml
 
-      # dont run autotols configure phase
-      rm configure.ac configure
-
       patchShebangs test/*.sh
     '';
 
@@ -64,11 +61,6 @@ lib.fix (
     buildInputs = [
       dbus
       dbus-glib
-    ];
-
-    pypaBuildFlags = [
-      # Don't discard meson build directory, still needed for tests!
-      "-Cbuild-dir=_meson-build"
     ];
 
     mesonFlags = [ (lib.mesonBool "tests" finalPackage.doInstallCheck) ];
@@ -90,15 +82,15 @@ lib.fix (
     checkPhase = ''
       runHook preCheck
 
-      meson test -C _meson-build --no-rebuild --print-errorlogs --timeout-multiplier 0
+      meson test -C build --no-rebuild --print-errorlogs --timeout-multiplier 0
 
       runHook postCheck
     '';
 
-    meta = with lib; {
+    meta = {
       description = "Python DBus bindings";
       homepage = "https://gitlab.freedesktop.org/dbus/dbus-python";
-      license = licenses.mit;
+      license = lib.licenses.mit;
       platforms = dbus.meta.platforms;
       maintainers = [ ];
     };

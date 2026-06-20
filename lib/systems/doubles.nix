@@ -12,9 +12,7 @@ let
 
     # Darwin
     "x86_64-darwin"
-    "i686-darwin"
     "aarch64-darwin"
-    "armv7a-darwin"
 
     # FreeBSD
     "i686-freebsd"
@@ -34,6 +32,7 @@ let
 
     # Linux
     "aarch64-linux"
+    "arc-linux"
     "armv5tel-linux"
     "armv6l-linux"
     "armv7a-linux"
@@ -41,12 +40,14 @@ let
     "i686-linux"
     "loongarch64-linux"
     "m68k-linux"
+    "sh4-linux"
     "microblaze-linux"
     "microblazeel-linux"
     "mips-linux"
     "mips64-linux"
     "mips64el-linux"
     "mipsel-linux"
+    "powerpc-linux"
     "powerpc64-linux"
     "powerpc64le-linux"
     "riscv32-linux"
@@ -110,6 +111,10 @@ let
     "aarch64-windows"
     "x86_64-windows"
     "i686-windows"
+
+    # UEFI
+    "aarch64-uefi"
+    "x86_64-uefi"
   ];
 
   allParsed = map parse.mkSystemFromString all;
@@ -140,6 +145,8 @@ in
   vc4 = filterDoubles predicates.isVc4;
   or1k = filterDoubles predicates.isOr1k;
   m68k = filterDoubles predicates.isM68k;
+  arc = filterDoubles predicates.isArc;
+  sh4 = filterDoubles predicates.isSh4;
   s390 = filterDoubles predicates.isS390;
   s390x = filterDoubles predicates.isS390x;
   loongarch64 = filterDoubles predicates.isLoongArch64;
@@ -194,6 +201,7 @@ in
   redox = filterDoubles predicates.isRedox;
   windows = filterDoubles predicates.isWindows;
   genode = filterDoubles predicates.isGenode;
+  uefi = filterDoubles predicates.isUefi;
 
   embedded = filterDoubles predicates.isNone;
 }

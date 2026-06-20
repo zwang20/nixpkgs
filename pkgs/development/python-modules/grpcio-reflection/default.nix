@@ -12,13 +12,13 @@
 # nixpkgs-update: no auto update
 buildPythonPackage rec {
   pname = "grpcio-reflection";
-  version = "1.70.0";
+  version = "1.80.0";
   pyproject = true;
 
   src = fetchPypi {
     pname = "grpcio_reflection";
     inherit version;
-    hash = "sha256-r0bOE+V/12At6u9bHRkD9mRPiYLMAPYvqfpbkorPakk=";
+    hash = "sha256-6cdqq8QyQnmUW3C8dqPUG8T5OWv/zxz8EBGlccLFYiE=";
   };
 
   build-system = [ setuptools ];
@@ -38,10 +38,10 @@ buildPythonPackage rec {
   # no tests
   doCheck = false;
 
-  meta = with lib; {
+  meta = {
     description = "Standard Protobuf Reflection Service for gRPC";
     homepage = "https://pypi.org/project/grpcio-reflection";
-    license = with licenses; [ asl20 ];
-    maintainers = with maintainers; [ happysalada ];
+    license = with lib.licenses; [ asl20 ];
+    maintainers = with lib.maintainers; [ happysalada ];
   };
 }

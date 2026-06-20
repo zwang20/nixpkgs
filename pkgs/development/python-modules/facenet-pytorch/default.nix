@@ -9,6 +9,7 @@
 buildPythonPackage rec {
   pname = "facenet-pytorch";
   version = "2.5.3";
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
@@ -28,6 +29,6 @@ buildPythonPackage rec {
     description = "Pretrained Pytorch face detection (MTCNN) and facial recognition (InceptionResnet) models";
     homepage = "https://github.com/timesler/facenet-pytorch";
     license = lib.licenses.mit;
-    maintainers = [ lib.maintainers.lucasew ];
+    maintainers = [ ];
   };
 }

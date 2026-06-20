@@ -1,6 +1,6 @@
-{ mkDerivation }:
+genericBuilder:
 
-mkDerivation {
-  version = "28.0-rc2";
-  sha256 = "sha256-ENarmypS1rs6gG7e0/WOC9p/jabwrjbj/u1rFeWDHck=";
+genericBuilder {
+  version = "28.5.0.2";
+  hash = "sha256-H25iMB+CvAd8yXv8jydBOCYfMm0LEwN1otRearNthYI=";
 }

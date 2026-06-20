@@ -2,7 +2,9 @@
   stdenvNoCC,
   lib,
   vscode-utils,
-  vscode-extensions-update-script,
+  vscode-extension-update-script,
+  stdenv,
+  autoPatchelfHook,
 }:
 
 vscode-utils.buildVscodeMarketplaceExtension {
@@ -11,31 +13,38 @@ vscode-utils.buildVscodeMarketplaceExtension {
       sources = {
         "x86_64-linux" = {
           arch = "linux-x64";
-          hash = "sha256-Sno0UnWnuOogT9DMEF+8dMZLqxAoHSsKORkHpre40dE=";
+          hash = "sha256-VZKvoTJ/IKxYsEJl0XhtglsggmrYdaRUlXCpDv/9fQ0=";
         };
         "x86_64-darwin" = {
           arch = "darwin-x64";
-          hash = "sha256-GaqBiAs0G9h1p2itDITPFBkFD1uOmM0fEp4tKmYFCXY=";
+          hash = "sha256-jo+fET/IyOl2zI/xxYy3KwnyOegTOXFhO1hDg5QtWrQ=";
         };
         "aarch64-linux" = {
           arch = "linux-arm64";
-          hash = "sha256-uDRhsAGw7mEI2ztC8QWDtrHAeMwk9IzU5Sln7HQl+1Y=";
+          hash = "sha256-HOSKZjozJlWn++P5bSwWdK3I+fgsPtS8kyvDWHMJQAY=";
         };
         "aarch64-darwin" = {
           arch = "darwin-arm64";
-          hash = "sha256-/5VEFXlGORo9t5ehDmLcqb0cYvJ6Gb1yIootyqpMZM8=";
+          hash = "sha256-ABBYsSR3HQgSnnXUJXsg1DwqwFj9W6CT59/1fuqWsTc=";
         };
       };
     in
     {
       name = "visualjj";
       publisher = "visualjj";
-      version = "0.14.4";
+      version = "0.29.0";
     }
     // sources.${stdenvNoCC.hostPlatform.system}
       or (throw "Unsupported system ${stdenvNoCC.hostPlatform.system}");
 
-  passthru.updateScript = vscode-extensions-update-script { extraArgs = [ "--platforms" ]; };
+  __structuredAttrs = true;
+  strictDeps = true;
+
+  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [
+    autoPatchelfHook
+  ];
+
+  passthru.updateScript = vscode-extension-update-script { };
 
   meta = {
     description = "Jujutsu version control integration, for simpler Git workflow";
@@ -48,6 +57,6 @@ vscode-utils.buildVscodeMarketplaceExtension {
       "x86_64-linux"
       "x86_64-darwin"
     ];
-    maintainers = [ lib.maintainers.drupol ];
+    maintainers = with lib.maintainers; [ sandarukasa ];
   };
 }

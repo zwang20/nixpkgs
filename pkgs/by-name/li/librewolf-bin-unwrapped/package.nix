@@ -9,7 +9,7 @@
   curl,
   dbus-glib,
   gtk3,
-  libXtst,
+  libxtst,
   libva,
   pciutils,
   pipewire,
@@ -22,7 +22,6 @@ let
   binaryName = "librewolf";
 
   mozillaPlatforms = {
-    i686-linux = "linux-i686";
     x86_64-linux = "linux-x86_64";
     aarch64-linux = "linux-arm64";
   };
@@ -37,19 +36,18 @@ let
 
   pname = "librewolf-bin-unwrapped";
 
-  version = "136.0.4-1";
+  version = "152.0-1";
 in
 
 stdenv.mkDerivation {
   inherit pname version;
 
   src = fetchurl {
-    url = "https://gitlab.com/api/v4/projects/44042130/packages/generic/librewolf/${version}/librewolf-${version}-${arch}-package.tar.xz";
+    url = "https://codeberg.org/api/packages/librewolf/generic/librewolf/${version}/librewolf-${version}-${arch}-package.tar.xz";
     hash =
       {
-        i686-linux = "sha256-olqGXteeHqT456SEMEHjPWcnypABGZbFvlpWKBF962Y=";
-        x86_64-linux = "sha256-3zcI1ND+laXFAv7nDlUEDjM007XHglnMYyFkd1n+sR8=";
-        aarch64-linux = "sha256-9OwVuKsTJZ7js846BZSzXiyz53d0ebXwugXyrmnFFQc=";
+        x86_64-linux = "sha256-sIpyCpfo9igZ0PMd1Y7sdIoui88dC9DjlwjN5M5HLsQ=";
+        aarch64-linux = "sha256-H1HtyZPcE8RpJTuqTnCOMC5gb+s1Dp80OE66KCdRM4g=";
       }
       .${stdenv.hostPlatform.system} or throwSystem;
   };
@@ -65,7 +63,7 @@ stdenv.mkDerivation {
     adwaita-icon-theme
     alsa-lib
     dbus-glib
-    libXtst
+    libxtst
   ];
 
   runtimeDependencies = [
@@ -108,7 +106,11 @@ stdenv.mkDerivation {
     description = "Fork of Firefox, focused on privacy, security and freedom (upstream binary release)";
     homepage = "https://librewolf.net";
     license = lib.licenses.mpl20;
-    maintainers = with lib.maintainers; [ dwrege ];
+    maintainers = with lib.maintainers; [
+      azahi
+      eclairevoyant
+      dwrege
+    ];
     platforms = builtins.attrNames mozillaPlatforms;
     mainProgram = "librewolf";
     hydraPlatforms = [ ];

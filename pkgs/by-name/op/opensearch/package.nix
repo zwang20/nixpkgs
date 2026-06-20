@@ -12,11 +12,11 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "opensearch";
-  version = "2.19.1";
+  version = "3.5.0";
 
   src = fetchurl {
     url = "https://artifacts.opensearch.org/releases/bundle/opensearch/${finalAttrs.version}/opensearch-${finalAttrs.version}-linux-x64.tar.gz";
-    hash = "sha256-skOqp9jc67h4gfcPcWE5A8Nt2gd/2Q7hHqN3QS1tVp8=";
+    hash = "sha256-0d6TQU1LTE983CsYbaK4fNuC86VAx23XD2xR6y2NuHw=";
   };
 
   nativeBuildInputs = [
@@ -31,7 +31,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook preInstall
 
     mkdir -p $out
-    cp -R bin config lib modules plugins $out
+    cp -R bin config lib modules plugins agent $out
 
     substituteInPlace $out/bin/opensearch \
       --replace 'bin/opensearch-keystore' "$out/bin/opensearch-keystore"
@@ -61,7 +61,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     description = "Open Source, Distributed, RESTful Search Engine";
     homepage = "https://github.com/opensearch-project/OpenSearch";
     license = lib.licenses.asl20;
-    maintainers = with lib.maintainers; [ shyim ];
+    maintainers = [ ];
     platforms = lib.platforms.unix;
     sourceProvenance = with lib.sourceTypes; [
       binaryBytecode

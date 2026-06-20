@@ -7,33 +7,33 @@
   jq,
   expat,
   jsoncpp,
-  libX11,
-  libXdmcp,
-  libXrandr,
+  libx11,
+  libxdmcp,
+  libxrandr,
   libffi,
   libxcb,
   pkg-config,
   wayland,
   which,
-  xcbutilkeysyms,
-  xcbutilwm,
+  libxcb-keysyms,
+  libxcb-wm,
   valijson,
   vulkan-headers,
   vulkan-loader,
   vulkan-utility-libraries,
   writeText,
-  libsForQt5,
+  qt6,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "vulkan-tools-lunarg";
-  version = "1.4.304.0";
+  version = "1.4.341.0";
 
   src = fetchFromGitHub {
     owner = "LunarG";
     repo = "VulkanTools";
-    rev = "vulkan-sdk-${version}";
-    hash = "sha256-nudyg5YF2j4kv0fCx3vV/jGsYrEaTMf0xydvdHF6XCU=";
+    rev = "vulkan-sdk-${finalAttrs.version}";
+    hash = "sha256-y/xTeEBjhDBlB0qcWUe159SvsRa5tBLUy6FZSmupQsU=";
   };
 
   nativeBuildInputs = [
@@ -42,15 +42,15 @@ stdenv.mkDerivation rec {
     jq
     which
     pkg-config
-    libsForQt5.qt5.wrapQtAppsHook
+    qt6.wrapQtAppsHook
   ];
 
   buildInputs = [
     expat
     jsoncpp
-    libX11
-    libXdmcp
-    libXrandr
+    libx11
+    libxdmcp
+    libxrandr
     libffi
     libxcb
     valijson
@@ -58,10 +58,10 @@ stdenv.mkDerivation rec {
     vulkan-loader
     vulkan-utility-libraries
     wayland
-    xcbutilkeysyms
-    xcbutilwm
-    libsForQt5.qt5.qtbase
-    libsForQt5.qt5.qtwayland
+    libxcb-keysyms
+    libxcb-wm
+    qt6.qtbase
+    qt6.qtwayland
   ];
 
   cmakeFlags = [
@@ -70,13 +70,12 @@ stdenv.mkDerivation rec {
 
   preConfigure = ''
     patchShebangs scripts/*
-    substituteInPlace via/CMakeLists.txt --replace "jsoncpp_static" "jsoncpp"
   '';
 
   # Include absolute paths to layer libraries in their associated
   # layer definition json files.
   preFixup = ''
-    for f in "$out"/etc/vulkan/explicit_layer.d/*.json "$out"/etc/vulkan/implicit_layer.d/*.json; do
+    for f in "$out"/share/vulkan/explicit_layer.d/*.json "$out"/share/vulkan/implicit_layer.d/*.json; do
       jq <"$f" >tmp.json ".layer.library_path = \"$out/lib/\" + .layer.library_path"
       mv tmp.json "$f"
     done
@@ -87,15 +86,15 @@ stdenv.mkDerivation rec {
     export XDG_CONFIG_DIRS=@out@/etc''${XDG_CONFIG_DIRS:+:''${XDG_CONFIG_DIRS}}
   '';
 
-  meta = with lib; {
+  meta = {
     description = "LunarG Vulkan Tools and Utilities";
     longDescription = ''
       Tools to aid in Vulkan development including useful layers, trace and
       replay, and tests.
     '';
     homepage = "https://github.com/LunarG/VulkanTools";
-    platforms = platforms.linux;
-    license = licenses.asl20;
+    platforms = lib.platforms.linux;
+    license = lib.licenses.asl20;
     maintainers = [ ];
   };
-}
+})

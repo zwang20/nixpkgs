@@ -2,38 +2,31 @@
   rustPlatform,
   lib,
   fetchFromGitHub,
-  darwin,
   openssl,
   pkg-config,
-  stdenv,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "gitlab-ci-ls";
-  version = "1.0.3";
+  version = "1.3.3";
   src = fetchFromGitHub {
     owner = "alesbrelih";
     repo = "gitlab-ci-ls";
-    rev = "${version}";
-    hash = "sha256-SVsQnY/TrFQXgvT5goXQqb5MYxU7untDq361EY7KRDQ=";
+    rev = "${finalAttrs.version}";
+    hash = "sha256-VA1y24JObxUcY8BPq9xtbajBrFlcq5H1wi8j7jQtsY4=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-7qZN198hqAmAd3WH8g+ceSGvQuZ0EheHeMwmvBd9if4=";
+  cargoHash = "sha256-SNc2mgfUaKYGsIDnpigMciO/l8EavlCbE8gCUSdj7aA=";
 
   nativeBuildInputs = [ pkg-config ];
-  buildInputs =
-    [ openssl ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      darwin.apple_sdk.frameworks.SystemConfiguration
-    ];
+  buildInputs = [ openssl ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/alesbrelih/gitlab-ci-ls";
     description = "GitLab CI Language Server (gitlab-ci-ls)";
-    license = licenses.mit;
-    maintainers = with maintainers; [ ma27 ];
-    platforms = platforms.unix;
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ ma27 ];
+    platforms = lib.platforms.unix;
     mainProgram = "gitlab-ci-ls";
   };
-}
+})

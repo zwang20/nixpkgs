@@ -5,32 +5,30 @@
   rustPlatform,
   protobuf,
   installShellFiles,
-  darwin,
+  writableTmpDirAsHomeHook,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "clipcat";
-  version = "0.21.0";
+  version = "0.25.0";
 
   src = fetchFromGitHub {
     owner = "xrelkd";
     repo = "clipcat";
-    tag = "v${version}";
-    hash = "sha256-CIqV5V7NN2zsqBwheJrcBnOTOBEncIwqqXdsZ9DLAog=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-ht+9TFugVckj5xCCHgwPHbXqeJRBP4MzBROMBIbYAYI=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-UA+NTtZ2qffUPUmvCidnTHwFzD3WOPTlxHR2e2vKwPQ=";
-
-  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
-    darwin.apple_sdk.frameworks.Cocoa
-    darwin.apple_sdk.frameworks.Security
-    darwin.apple_sdk.frameworks.SystemConfiguration
-  ];
+  cargoHash = "sha256-pejtrvCD1HkAZ+pMynRRLw+EV/pHwzh/7OnnoI5LHoc=";
 
   nativeBuildInputs = [
     protobuf
     installShellFiles
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # fix following error on darwin:
+    # objc/notify.h:1:9: fatal error: could not build module 'Cocoa'
+    writableTmpDirAsHomeHook
   ];
 
   checkFlags = [
@@ -57,6 +55,7 @@ rustPlatform.buildRustPackage rec {
       xrelkd
       bot-wxt1221
     ];
+    broken = stdenv.hostPlatform.isDarwin;
     mainProgram = "clipcatd";
   };
-}
+})

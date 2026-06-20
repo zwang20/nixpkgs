@@ -13,21 +13,27 @@ let
   # NOTE: When updating these, please also take a look at the changes done to
   # kernel config in the xanmod version commit
   variants = {
+    # ./update-xanmod.sh lts
     lts = {
-      version = "6.12.21";
-      hash = "sha256-Zb/n+hLho94+6u5BHAmRYfit/kv1xlh/Tp39kI3kfjA=";
+      version = "6.18.35";
+      hash = "sha256-as5IBHZlphht6LqSzLdUaNAGxvGsgtTWNtwoCj12FNA=";
+      isLTS = true;
     };
+    # ./update-xanmod.sh main
     main = {
-      version = "6.13.9";
-      hash = "sha256-JRmyvlvU8NOQ4aLdZ2BmQWUnl1RGjcjucaWN4zVxQpg=";
+      version = "7.0.12";
+      hash = "sha256-yqyHkdSLSyTrhnwsWJ0jq4bhqaCrJ+qzkUzxdrVJP6A=";
     };
   };
+
+  # nixpkgs-update: no auto update
 
   xanmodKernelFor =
     {
       version,
       suffix ? "xanmod1",
       hash,
+      isLTS ? false,
     }:
     buildLinux (
       args
@@ -43,32 +49,66 @@ let
           inherit hash;
         };
 
-        structuredExtraConfig = with lib.kernel; {
-          # CPUFreq governor Performance
-          CPU_FREQ_DEFAULT_GOV_PERFORMANCE = lib.mkOverride 60 yes;
-          CPU_FREQ_DEFAULT_GOV_SCHEDUTIL = lib.mkOverride 60 no;
+        structuredExtraConfig =
+          with lib.kernel;
+          {
+            # CPUFreq governor Performance
+            CPU_FREQ_DEFAULT_GOV_PERFORMANCE = lib.mkOverride 60 yes;
+            CPU_FREQ_DEFAULT_GOV_SCHEDUTIL = lib.mkOverride 60 no;
 
-          # Full preemption
-          PREEMPT = lib.mkOverride 60 yes;
-          PREEMPT_VOLUNTARY = lib.mkOverride 60 no;
+            # Preemption
+            PREEMPT = lib.mkOverride 60 yes;
 
-          # Google's BBRv3 TCP congestion Control
-          TCP_CONG_BBR = yes;
-          DEFAULT_BBR = yes;
+            # Google's BBRv3 TCP congestion Control
+            TCP_CONG_BBR = yes;
+            DEFAULT_BBR = yes;
 
-          # Preemptive Full Tickless Kernel at 250Hz
-          HZ = freeform "250";
-          HZ_250 = yes;
-          HZ_1000 = no;
+            # Preemptive tickless idle kernel
+            HZ = freeform "250";
+            HZ_250 = yes;
+            NO_HZ = no;
+            NO_HZ_FULL = lib.mkOverride 60 no;
+            NO_HZ_IDLE = yes;
 
-          # RCU_BOOST and RCU_EXP_KTHREAD
-          RCU_EXPERT = yes;
-          RCU_FANOUT = freeform "64";
-          RCU_FANOUT_LEAF = freeform "16";
-          RCU_BOOST = yes;
-          RCU_BOOST_DELAY = freeform "0";
-          RCU_EXP_KTHREAD = yes;
+            # CPU idle governors favored
+            CPU_IDLE_GOV_HALTPOLL = yes; # Already enabled
+            CPU_IDLE_GOV_LADDER = yes;
+            CPU_IDLE_GOV_TEO = yes;
+
+            # RCU_BOOST and RCU_EXP_KTHREAD
+            RCU_EXPERT = yes;
+            RCU_FANOUT = freeform "64";
+            RCU_FANOUT_LEAF = freeform "16";
+            RCU_BOOST = yes;
+            RCU_BOOST_DELAY = freeform "0";
+            RCU_EXP_KTHREAD = yes;
+            RCU_NOCB_CPU = yes;
+            RCU_DOUBLE_CHECK_CB_TIME = yes;
+
+            # x86 features
+            X86_FRED = yes;
+            X86_POSTED_MSI = yes;
+          }
+          // lib.optionalAttrs (lib.versionOlder (lib.versions.majorMinor version) "7.0") {
+            PREEMPT_VOLUNTARY = lib.mkOverride 60 no;
+          }
+          // lib.optionalAttrs (lib.versionAtLeast (lib.versions.majorMinor version) "6.13") {
+            # Lazy preemption
+            PREEMPT = lib.mkOverride 70 no;
+            PREEMPT_LAZY = yes;
+          };
+
+        extraPassthru.updateScript = {
+          command = [
+            ./update-xanmod.sh
+            variant
+          ];
+          supportedFeatures = [
+            "commit"
+          ];
         };
+
+        inherit isLTS;
 
         extraMeta = {
           branch = lib.versions.majorMinor version;
@@ -79,6 +119,7 @@ let
             zzzsy
             eljamm
           ];
+          teams = [ ];
           description = "Built with custom settings and new features built to provide a stable, responsive and smooth desktop experience";
           broken = stdenv.hostPlatform.isAarch64;
         };

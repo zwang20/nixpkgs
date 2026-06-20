@@ -15,6 +15,7 @@
   libpng,
   libvlc,
   libvorbis,
+  libx11,
   openal,
   python3,
   zlib,
@@ -28,13 +29,13 @@
 # Additionally, when gemrb adds support for the EE games, libvlc will be needed anyway.
 
 let
-  version = "0.9.4";
+  version = "0.9.5";
 
   src = fetchFromGitHub {
     owner = "gemrb";
     repo = "gemrb";
     rev = "v${version}";
-    hash = "sha256-+aPnOJQGRblqcrblVU5ZwA8CZqeT19rxEtn3GLuofYU=";
+    hash = "sha256-gPtmJb3GhBrvP1vy933wPPy+n3BwBIbJ2o8VV674Mso=";
   };
 
   icons = runCommand "gemrb-icons" { nativeBuildInputs = [ imagemagick ]; } ''
@@ -60,6 +61,7 @@ stdenv.mkDerivation (finalAttrs: {
     libpng
     libvlc
     libvorbis
+    libx11
     openal
     python3
     zlib
@@ -68,7 +70,8 @@ stdenv.mkDerivation (finalAttrs: {
   nativeBuildInputs = [
     cmake
     pkg-config
-  ] ++ lib.optionals (finalAttrs.finalPackage.doCheck or false) [ gtest ];
+  ]
+  ++ lib.optionals (finalAttrs.finalPackage.doCheck or false) [ gtest ];
 
   cmakeFlags = [
     (lib.cmakeFeature "DATA_DIR" "${placeholder "out"}/share/gemrb")
@@ -89,7 +92,7 @@ stdenv.mkDerivation (finalAttrs: {
   # a bunch of tests fail in our sandbox
   doCheck = false;
 
-  meta = with lib; {
+  meta = {
     description = "Reimplementation of the Infinity Engine, used by games such as Baldur's Gate";
     longDescription = ''
       GemRB (Game engine made with pre-Rendered Background) is a portable
@@ -98,8 +101,8 @@ stdenv.mkDerivation (finalAttrs: {
       ruleset (Baldur's Gate and Icewind Dale series, Planescape: Torment).
     '';
     homepage = "https://gemrb.org/";
-    license = licenses.gpl2Only;
-    maintainers = with maintainers; [ peterhoeg ];
+    license = lib.licenses.gpl2Only;
+    maintainers = with lib.maintainers; [ peterhoeg ];
     mainProgram = "gemrb";
   };
 })

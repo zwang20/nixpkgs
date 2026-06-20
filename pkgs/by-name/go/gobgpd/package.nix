@@ -5,18 +5,18 @@
   nixosTests,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "gobgpd";
-  version = "3.36.0";
+  version = "4.6.0";
 
   src = fetchFromGitHub {
     owner = "osrg";
     repo = "gobgp";
-    tag = "v${version}";
-    hash = "sha256-vyMC3FcfMHVsRosLkTYgCawiTIcJs0R5GgSZERRPHnE=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-O+jKCckHAM7KCPvWpC0ZofJx2RR+GwAK8qz8tJXtsZQ=";
   };
 
-  vendorHash = "sha256-bR6msi2IyNmYgmpLrbn/hnX4EzLOBa2UHTzwDJFasos=";
+  vendorHash = "sha256-fGDjeWmIe0GNZTDCXDBU4b286rMdCnPgRBInLZsFWxQ=";
 
   postConfigure = ''
     export CGO_ENABLED=0
@@ -34,12 +34,12 @@ buildGoModule rec {
 
   passthru.tests = { inherit (nixosTests) gobgpd; };
 
-  meta = with lib; {
+  meta = {
     description = "BGP implemented in Go";
     mainProgram = "gobgpd";
     homepage = "https://osrg.github.io/gobgp/";
-    changelog = "https://github.com/osrg/gobgp/releases/tag/v${version}";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ higebu ];
+    changelog = "https://github.com/osrg/gobgp/releases/tag/v${finalAttrs.version}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ higebu ];
   };
-}
+})

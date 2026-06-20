@@ -2,7 +2,6 @@
   lib,
   fetchFromGitHub,
   buildPythonPackage,
-  pythonOlder,
 
   # build-system
   setuptools,
@@ -10,7 +9,6 @@
   # dependencies
   amaranth,
   apollo-fpga,
-  future,
   libusb1,
   luna-soc,
   luna-usb,
@@ -25,18 +23,18 @@
 
   # tests
   pytestCheckHook,
+  udevCheckHook,
 }:
 buildPythonPackage rec {
   pname = "cynthion";
-  version = "0.1.8";
+  version = "0.2.5";
   pyproject = true;
-  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "greatscottgadgets";
     repo = "cynthion";
     tag = version;
-    hash = "sha256-twkCv47Goob2cO7FeHegvab3asf8fqbY9qg97Vw4ZCo=";
+    hash = "sha256-Ju01eqBVZ7CD0pw4nIFML4LcCPXzC78dLpQru3a+5bU=";
   };
 
   sourceRoot = "${src.name}/cynthion/python";
@@ -47,14 +45,19 @@ buildPythonPackage rec {
       --replace-fail 'dynamic = ["version"]' 'version = "${version}"'
   '';
 
+  nativeBuildInputs = [ udevCheckHook ];
+
   build-system = [
     setuptools
   ];
 
+  pythonRelaxDeps = [ "pygreat" ];
+
+  pythonRemoveDeps = [ "future" ];
+
   dependencies = [
     amaranth
     apollo-fpga
-    future
     libusb1
     luna-soc
     luna-usb
@@ -74,12 +77,18 @@ buildPythonPackage rec {
 
   pythonImportsCheck = [ "cynthion" ];
 
+  # Make udev rules available for NixOS option services.udev.packages
+  postInstall = ''
+    install -Dm444 \
+      -t $out/lib/udev/rules.d \
+      build/lib/cynthion/assets/54-cynthion.rules
+  '';
+
   meta = {
-    changelog = "https://github.com/greatscottgadgets/cynthion/releases/tag/${version}";
     description = "Python package and utilities for the Great Scott Gadgets Cynthion USB Test Instrument";
     homepage = "https://github.com/greatscottgadgets/cynthion";
+    changelog = "https://github.com/greatscottgadgets/cynthion/releases/tag/${src.tag}";
     license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [ carlossless ];
-    broken = lib.versionAtLeast amaranth.version "0.5";
   };
 }

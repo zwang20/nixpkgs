@@ -3,7 +3,12 @@
   lib,
   fetchFromGitHub,
   bash,
+  bc,
+  gitMinimal,
+  gnugrep,
+  jq,
   which,
+  writableTmpDirAsHomeHook,
   versionCheckHook,
   coreutils,
   makeBinaryWrapper,
@@ -12,19 +17,20 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "bashunit";
-  version = "0.19.0";
+  version = "0.39.1";
+
   src = fetchFromGitHub {
     owner = "TypedDevs";
     repo = "bashunit";
     tag = finalAttrs.version;
-    hash = "sha256-EoCCqESzmCW12AuAqA3qh2VcE8gyUPIGJEoCcZhMA/Y=";
+    hash = "sha256-yMzi2SFEMSNNFztapWavMmbueWwVK0GWjyFR3cJZmTg=";
     forceFetchGit = true; # needed to include the tests directory for the check phase
   };
 
   nativeBuildInputs = [ makeBinaryWrapper ];
 
   postConfigure = ''
-    patchShebangs src tests build.sh bashunit
+    patchShebangs tests build.sh bashunit
     substituteInPlace Makefile \
       --replace-fail "SHELL=/bin/bash" "SHELL=${lib.getExe bash}"
   '';
@@ -41,12 +47,22 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
-  # some tests are currently broken on linux and it is not easy to disable them
-  # reenable them after https://github.com/TypedDevs/bashunit/pull/397 has been merged
-  doCheck = false;
-  nativeCheckInputs = [ which ];
+  doCheck = true;
+  nativeCheckInputs = [
+    bc
+    gitMinimal
+    jq
+    which
+  ];
   checkPhase = ''
     runHook preCheck
+    patchShebangs bin/bashunit
+  ''
+  # Disabling a failing test on Darwin platforms only
+  + lib.optionalString stdenvNoCC.hostPlatform.isDarwin ''
+    rm tests/unit/console_results_test.sh
+  ''
+  + ''
     make test
     runHook postCheck
   '';
@@ -55,15 +71,21 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     wrapProgram $out/bin/bashunit \
       --prefix PATH : "${
         lib.makeBinPath [
-          coreutils
+          coreutils # cat, mktemp
+          gnugrep # grep
           which
         ]
       }"
   '';
 
-  nativeInstallCheckInputs = [ versionCheckHook ];
+  nativeInstallCheckInputs = [
+    versionCheckHook
+    writableTmpDirAsHomeHook
+  ];
   doInstallCheck = true;
-  versionCheckProgramArg = "--version";
+  versionCheckKeepEnvironment = [
+    "HOME"
+  ];
 
   passthru.updateScript = nix-update-script { };
 

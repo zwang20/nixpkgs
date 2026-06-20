@@ -5,17 +5,17 @@
 }:
 mkYaziPlugin {
   pname = "starship.yazi";
-  version = "25.2.7-unstable-2025-02-23";
+  version = "0-unstable-2026-06-14";
 
   src = fetchFromGitHub {
     owner = "Rolv-Apneseth";
     repo = "starship.yazi";
-    rev = "6c639b474aabb17f5fecce18a4c97bf90b016512";
-    hash = "sha256-bhLUziCDnF4QDCyysRn7Az35RAy8ibZIVUzoPgyEO1A=";
+    rev = "159eaba5b5052bf78ff6cfbfe4e527b946818c82";
+    hash = "sha256-I21to4cxlszRpsb58cvsmwX7VglQBSJC0rrsFIltzC8=";
   };
 
   meta = {
-    description = "Starship prompt plugin for yazi.";
+    description = "Starship prompt plugin for yazi";
     homepage = "https://github.com/Rolv-Apneseth/starship.yazi";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ khaneliman ];

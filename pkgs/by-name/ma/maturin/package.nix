@@ -3,7 +3,6 @@
   stdenv,
   fetchFromGitHub,
   rustPlatform,
-  darwin,
   libiconv,
   testers,
   nix-update-script,
@@ -11,22 +10,20 @@
   python3,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "maturin";
-  version = "1.8.2";
+  version = "1.12.6";
 
   src = fetchFromGitHub {
     owner = "PyO3";
     repo = "maturin";
-    rev = "v${version}";
-    hash = "sha256-k4s0kh68kycc8MSVkD64X547mWmFW4UuToDIcZ87OSc=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-NQ94RdQTQlRR5+2dC95cFNhwYliHmkD11JWyGt6BV6g=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-6aLWkphWLScUz6l0RJj9LmNad6aPxLz2iVxXVOXq7pg=";
+  cargoHash = "sha256-9VqS9wvQAsSYNhH7B9WlD6SZjXR4S2sYzYoNy6vbYBM=";
 
   buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
-    darwin.apple_sdk.frameworks.Security
     libiconv
   ];
 
@@ -37,7 +34,7 @@ rustPlatform.buildRustPackage rec {
     tests = {
       version = testers.testVersion { package = maturin; };
       pyo3 = python3.pkgs.callPackage ./pyo3-test {
-        format = "pyproject";
+        pyproject = true;
         buildAndTestSubdir = "examples/word-count";
         preConfigure = "";
 
@@ -62,12 +59,15 @@ rustPlatform.buildRustPackage rec {
       Python and can upload them to PyPI.
     '';
     homepage = "https://github.com/PyO3/maturin";
-    changelog = "https://github.com/PyO3/maturin/blob/v${version}/Changelog.md";
+    changelog = "https://github.com/PyO3/maturin/blob/v${finalAttrs.version}/Changelog.md";
     license = with lib.licenses; [
       asl20 # or
       mit
     ];
-    maintainers = with lib.maintainers; [ getchoo ];
+    maintainers = with lib.maintainers; [
+      getchoo
+      miniharinn
+    ];
     mainProgram = "maturin";
   };
-}
+})

@@ -41,15 +41,13 @@ in
     };
 
     services.unifi.jrePackage = lib.mkPackageOption pkgs "jdk" {
-      default = "jdk17_headless";
+      default = "jdk25_headless";
       extraDescription = ''
         Check the UniFi controller release notes to ensure it is supported.
       '';
     };
 
-    services.unifi.unifiPackage = lib.mkPackageOption pkgs "unifi" {
-      default = "unifi8";
-    };
+    services.unifi.unifiPackage = lib.mkPackageOption pkgs "unifi" { };
 
     services.unifi.mongodbPackage = lib.mkPackageOption pkgs "mongodb" {
       default = "mongodb-7_0";
@@ -116,7 +114,7 @@ in
           only supports migrating one major version at a time; therefore, you
           may wish to set `services.unifi.mongodbPackage = pkgs.mongodb-6_0;`
           and activate your configuration before upgrading again to the default
-          `mongodb-7_0` supported by `unifi8`.
+          `mongodb-7_0` supported by `unifi`.
 
           For more information, see the MongoDB upgrade notes:
           <https://www.mongodb.com/docs/manual/release-notes/7.0-upgrade-standalone/#upgrade-recommendations-and-checklists>
@@ -162,17 +160,14 @@ in
       serviceConfig = {
         Type = "notify";
         ExecStart = "${cmd} start";
-        ExecStop = "${cmd} stop";
+        ExecStop = [
+          "${cmd} stop"
+          "${lib.getExe' pkgs.util-linux "waitpid"} -t 30 -e $MAINPID"
+        ];
         Restart = "always";
-        TimeoutSec = "5min";
         User = "unifi";
         UMask = "0077";
         WorkingDirectory = "${stateDir}";
-        # the stop command exits while the main process is still running, and unifi
-        # wants to manage its own child processes. this means we have to set KillSignal
-        # to something the main process ignores, otherwise every stop will have unifi.service
-        # fail with SIGTERM status.
-        KillSignal = "SIGCONT";
 
         # Hardening
         AmbientCapabilities = "";

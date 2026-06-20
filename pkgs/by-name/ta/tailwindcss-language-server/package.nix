@@ -2,58 +2,59 @@
   lib,
   stdenv,
   fetchFromGitHub,
-  nodejs_23,
-  pnpm_9,
-  cacert,
+  nodejs,
+  pnpm_10,
+  fetchPnpmDeps,
+  pnpmConfigHook,
+  nix-update-script,
 }:
-
-let
-  version = "0.14.4";
-in
 stdenv.mkDerivation (finalAttrs: {
   pname = "tailwindcss-language-server";
-  inherit version;
+  version = "0.14.29";
 
   src = fetchFromGitHub {
     owner = "tailwindlabs";
     repo = "tailwindcss-intellisense";
-    rev = "v${finalAttrs.version}";
-    hash = "sha256-ZSKvD0OnI+/i5MHHlrgYbcaa8g95fVwjb2oryaEParQ=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-o5NyU52j3ZyuKWT4lL5U78qz4TBbXerylTl2fdvwqlk=";
   };
 
-  pnpmDeps = pnpm_9.fetchDeps {
+  pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs)
       pname
       version
       src
       pnpmWorkspaces
-      prePnpmInstall
+      patchPhase
       ;
-    hash = "sha256-f7eNBQl6/qLE7heoCFnYpjq57cjZ9pwT9Td4WmY1oag=";
+    pnpm = pnpm_10;
+    fetcherVersion = 4;
+    hash = "sha256-excPYLP+81ftU/LwBeO/lmj4Nbefb4dNvpvudg/sx+w=";
   };
 
+  patchPhase = ''
+    substituteInPlace ./packages/tailwindcss-language-server/package.json \
+      --replace '"@tailwindcss/oxide": "^4.1.15",' '"@tailwindcss/oxide": "^4.1.14",'
+  '';
+
   nativeBuildInputs = [
-    nodejs_23
-    pnpm_9.configHook
+    pnpmConfigHook
+    pnpm_10
   ];
 
   buildInputs = [
-    nodejs_23
+    nodejs
   ];
 
-  pnpmWorkspaces = [ "@tailwindcss/language-server..." ];
-  prePnpmInstall = ''
-    # Warning section for "pnpm@v8"
-    # https://pnpm.io/cli/install#--filter-package_selector
-    pnpm config set dedupe-peer-dependents false
-    export NODE_EXTRA_CA_CERTS="${cacert}/etc/ssl/certs/ca-bundle.crt"
-  '';
+  pnpmWorkspaces = [
+    "@tailwindcss/language-server..."
+  ];
 
+  # Must build the "@tailwindcss/language-service" package. Dependency is linked via workspace by "pnpm"
+  # https://github.com/tailwindlabs/tailwindcss-intellisense/blob/v0.14.24/pnpm-lock.yaml#L71
   buildPhase = ''
     runHook preBuild
 
-    # Must build the "@tailwindcss/language-service" package. Dependency is linked via workspace by "pnpm"
-    # (https://github.com/tailwindlabs/tailwindcss-intellisense/blob/%40tailwindcss/language-server%40v0.0.27/pnpm-lock.yaml#L47)
     pnpm --filter "@tailwindcss/language-server..." build
 
     runHook postBuild
@@ -70,12 +71,15 @@ stdenv.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  passthru.updateScript = nix-update-script { };
+
+  meta = {
     description = "Tailwind CSS Language Server";
     homepage = "https://github.com/tailwindlabs/tailwindcss-intellisense";
-    license = licenses.mit;
-    maintainers = with maintainers; [ happysalada ];
+    changelog = "https://github.com/tailwindlabs/tailwindcss-intellisense/releases/tag/v${finalAttrs.version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ happysalada ];
     mainProgram = "tailwindcss-language-server";
-    platforms = platforms.all;
+    platforms = nodejs.meta.platforms;
   };
 })

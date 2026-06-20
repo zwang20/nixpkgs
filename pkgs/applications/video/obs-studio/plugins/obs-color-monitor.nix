@@ -9,13 +9,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "obs-color-monitor";
-  version = "0.9.1";
+  version = "0.9.6";
 
   src = fetchFromGitHub {
     owner = "norihiro";
     repo = "obs-color-monitor";
     tag = finalAttrs.version;
-    hash = "sha256-4Dagga9BgW1Fiaxqs9QlyTax+SgFyTiNiU3yP2GjIDs=";
+    hash = "sha256-2TjkPsudGwB2TNdfVnRqMiUQquAnCdBEmG9N9JLfewo=";
   };
 
   nativeBuildInputs = [ cmake ];

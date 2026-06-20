@@ -1,35 +1,35 @@
 {
   lib,
   buildPythonPackage,
-  pythonOlder,
-  fetchPypi,
-  setuptools,
+  fetchFromGitHub,
+  pdm-backend,
+  acres,
   click,
   pyyaml,
-  jsonschema,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "bidsschematools";
-  version = "1.0.4";
+  version = "1.2.4";
   pyproject = true;
 
-  disabled = pythonOlder "3.9";
-
-  src = fetchPypi {
-    pname = "bidsschematools";
-    inherit version;
-    hash = "sha256-dEPJircy7RDRa1Q7lgUhgfj2ewVo1rsUu1A1mnSi6vw=";
+  src = fetchFromGitHub {
+    owner = "bids-standard";
+    repo = "bids-specification";
+    tag = "schema-${finalAttrs.version}";
+    hash = "sha256-imgY2aDSQjS3Yjxv7iq31+qFrOCMXfYdS4Tt8lhMosI=";
   };
 
+  sourceRoot = "${finalAttrs.src.name}/tools/schemacode";
+
   build-system = [
-    setuptools
+    pdm-backend
   ];
 
   dependencies = [
+    acres
     click
     pyyaml
-    jsonschema
   ];
 
   pythonImportsCheck = [
@@ -42,4 +42,4 @@ buildPythonPackage rec {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ wegank ];
   };
-}
+})

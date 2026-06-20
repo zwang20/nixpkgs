@@ -4,27 +4,32 @@
   fetchFromGitLab,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "gitlab-pages";
-  version = "17.10.1";
+  version = "18.11.5";
 
   # nixpkgs-update: no auto update
   src = fetchFromGitLab {
     owner = "gitlab-org";
     repo = "gitlab-pages";
-    rev = "v${version}";
-    hash = "sha256-B/v0jj5hoNmF9cygvi9eLQ4pLuZ1+wIyNnJN2uCAXdE=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-jSTXLbzYCiCpqrbs9kAmW6um2X5hA1OFiA6fSZrQ2RI=";
   };
 
-  vendorHash = "sha256-o2DgP2YP2aejtuQ4NC90kysvwDy0XvSb4CW5oE2x2qQ=";
+  vendorHash = "sha256-PUW4cgAiM1GTtvja894OZ4pe0SWChf5JsL4/fkns2kI=";
   subPackages = [ "." ];
 
-  meta = with lib; {
+  ldflags = [
+    "-X"
+    "main.VERSION=${finalAttrs.version}"
+  ];
+
+  meta = {
     description = "Daemon used to serve static websites for GitLab users";
     mainProgram = "gitlab-pages";
     homepage = "https://gitlab.com/gitlab-org/gitlab-pages";
-    changelog = "https://gitlab.com/gitlab-org/gitlab-pages/-/blob/v${version}/CHANGELOG.md";
-    license = licenses.mit;
-    maintainers = teams.gitlab.members;
+    changelog = "https://gitlab.com/gitlab-org/gitlab-pages/-/blob/v${finalAttrs.version}/CHANGELOG.md";
+    license = lib.licenses.mit;
+    teams = [ lib.teams.gitlab ];
   };
-}
+})

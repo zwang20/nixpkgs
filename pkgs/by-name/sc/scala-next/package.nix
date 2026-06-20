@@ -1,10 +1,10 @@
 { scala, fetchurl }:
 
 scala.bare.overrideAttrs (oldAttrs: {
-  version = "3.6.4";
+  version = "3.8.3";
   pname = "scala-next";
   src = fetchurl {
     inherit (oldAttrs.src) url;
-    hash = "sha256-I8Jpq/aelCJyAZzvNq5/QbfdD0Mk5mPuzTDxVdkIxKU=";
+    hash = "sha256-/2LoJ+seoXgT2X5f1eDSaQEQeHFz/h4eQ9na3MNUL6c=";
   };
 })

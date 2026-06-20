@@ -6,27 +6,26 @@
   libxcb,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "cotp";
-  version = "1.9.2";
+  version = "1.9.10";
 
   src = fetchFromGitHub {
     owner = "replydev";
     repo = "cotp";
-    rev = "v${version}";
-    hash = "sha256-5wVIjh16AYwrzjbPgvjsQhihu/vwdQfzU2kZS6eSTWs=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-yVzVo4l2bMZXrWlDfJXSgHUmic7Fe0Og+I5ROv3iQCQ=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-6VdlXQymOFZgMksGRQ7f9ZGrzKblYlQAoBFUhi4wuM0=";
+  cargoHash = "sha256-M0lI/DAMUVRMNbvoLc2w7PtU0rjjXiMYZM6vzfdEi0s=";
 
   buildInputs = lib.optionals stdenv.hostPlatform.isLinux [ libxcb ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/replydev/cotp";
     description = "Trustworthy, encrypted, command-line TOTP/HOTP authenticator app with import functionality";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ davsanchez ];
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ davsanchez ];
     mainProgram = "cotp";
   };
-}
+})

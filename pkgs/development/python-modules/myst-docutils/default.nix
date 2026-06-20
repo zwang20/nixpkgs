@@ -5,7 +5,6 @@
   defusedxml,
   docutils,
   fetchFromGitHub,
-  fetchpatch,
   flit-core,
   jinja2,
   markdown-it-py,
@@ -13,7 +12,6 @@
   pytest-param-files,
   pytest-regressions,
   pytestCheckHook,
-  pythonOlder,
   pyyaml,
   sphinx-pytest,
   sphinx,
@@ -22,25 +20,15 @@
 
 buildPythonPackage rec {
   pname = "myst-docutils";
-  version = "4.0.0";
+  version = "5.0.0";
   pyproject = true;
-
-  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "executablebooks";
     repo = "MyST-Parser";
     tag = "v${version}";
-    hash = "sha256-QbFENC/Msc4pkEOPdDztjyl+2TXtAbMTHPJNAsUB978=";
+    hash = "sha256-0lGejdGVVvZar3sPBbvThXzJML7PcR5+shyDHTTtVEY=";
   };
-
-  patches = [
-    (fetchpatch {
-      name = "fix-amsmath-test.patch";
-      url = "https://github.com/executablebooks/MyST-Parser/commit/8ea56455aa87feb2d96bf29c335bca5dc885b77b.patch";
-      hash = "sha256-anlBvZqUSYefs6Hm8MjQUutKYGM0fEVzaiGnsFHv4JQ=";
-    })
-  ];
 
   build-system = [ flit-core ];
 
@@ -69,6 +57,8 @@ buildPythonPackage rec {
     # Tests require linkify
     "test_cmdline"
     "test_extended_syntaxes"
+    # sphinx compat
+    "test_sphinx_directives"
   ];
 
   disabledTestPaths = [
@@ -76,11 +66,10 @@ buildPythonPackage rec {
     "tests/test_sphinx/"
   ];
 
-  meta = with lib; {
+  meta = {
     description = "Extended commonmark compliant parser, with bridges to docutils/sphinx";
     homepage = "https://github.com/executablebooks/MyST-Parser";
-    changelog = "https://github.com/executablebooks/MyST-Parser/blob/v${version}/CHANGELOG.md";
-    license = licenses.mit;
-    maintainers = with maintainers; [ dpausp ];
+    changelog = "https://github.com/executablebooks/MyST-Parser/blob/${src.tag}/CHANGELOG.md";
+    license = lib.licenses.mit;
   };
 }

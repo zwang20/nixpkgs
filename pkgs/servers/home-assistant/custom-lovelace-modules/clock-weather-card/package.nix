@@ -9,18 +9,18 @@
 }:
 stdenvNoCC.mkDerivation rec {
   pname = "clock-weather-card";
-  version = "2.8.10";
+  version = "2.9.2";
 
   src = fetchFromGitHub {
     owner = "pkissling";
     repo = "clock-weather-card";
     tag = "v${version}";
-    hash = "sha256-ZmqtvA6kRkqkoRCBerLZXqRB1wwTF0jrc+KfigaE7Pw=";
+    hash = "sha256-8srE601xz8AcFv+5swIUUqUlHif/Qfm1TdfA5HfDAnU=";
   };
 
   offlineCache = fetchYarnDeps {
     yarnLock = src + "/yarn.lock";
-    hash = "sha256-Z9UZHsmaRjaf7fIDYhNmlLU2T1l1hlFKvyEahPK3Y3E=";
+    hash = "sha256-hCniXzBsnTozR0PWEleTo7K9P/lqoKNF+L8EErjOdEg=";
   };
 
   nativeBuildInputs = [
@@ -39,7 +39,7 @@ stdenvNoCC.mkDerivation rec {
   '';
 
   meta = {
-    description = "A Home Assistant Card indicating today's date/time, along with an iOS inspired weather forecast for the next days with animated icons";
+    description = "Home Assistant Card indicating today's date/time, along with an iOS inspired weather forecast for the next days with animated icons";
     homepage = "https://github.com/pkissling/clock-weather-card";
     changelog = "https://github.com/pkissling/clock-weather-card/blob/${src.tag}/CHANGELOG.md";
     license = lib.licenses.mit;

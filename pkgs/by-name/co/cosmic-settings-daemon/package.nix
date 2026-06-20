@@ -6,21 +6,24 @@
   pop-gtk-theme,
   adw-gtk3,
   pkg-config,
-  geoclue2-with-demo-agent,
+  libpulseaudio,
   libinput,
   udev,
+  openssl,
   nixosTests,
+  nix-update-script,
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "cosmic-settings-daemon";
-  version = "1.0.0-alpha.6";
+  version = "1.0.16";
 
+  # nixpkgs-update: no auto update
   src = fetchFromGitHub {
     owner = "pop-os";
     repo = "cosmic-settings-daemon";
     tag = "epoch-${finalAttrs.version}";
-    hash = "sha256-DtwW6RxHnNh87Xu0NCULfUsHNzYU9tHtFKE9HO3rvME=";
+    hash = "sha256-A+nOAadFWU+KRW54dP2WW6P6fabIs4z1AqC37LSZjUI=";
   };
 
   postPatch = ''
@@ -30,16 +33,19 @@ rustPlatform.buildRustPackage (finalAttrs: {
       --replace-fail '/usr/share/themes/adw-gtk3' '${adw-gtk3}/share/themes/adw-gtk3'
   '';
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-lGzQBL9IXbPsaKeVHp34xkm5FnTxWvfw4wg3El4LZdA=";
+  cargoHash = "sha256-bz+JasI3WE30sKKgjofVO/42Ml4YY9Dw3JxnZmZVQk4=";
+
+  separateDebugInfo = true;
+  __structuredAttrs = true;
 
   nativeBuildInputs = [ pkg-config ];
+
   buildInputs = [
     libinput
+    libpulseaudio
+    openssl
     udev
   ];
-
-  env.GEOCLUE_AGENT = "${lib.getLib geoclue2-with-demo-agent}/libexec/geoclue-2.0/demos/agent";
 
   makeFlags = [
     "prefix=$(out)"
@@ -48,24 +54,30 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   dontCargoInstall = true;
 
-  passthru.tests = {
-    inherit (nixosTests)
-      cosmic
-      cosmic-autologin
-      cosmic-noxwayland
-      cosmic-autologin-noxwayland
-      ;
+  passthru = {
+    tests = {
+      inherit (nixosTests)
+        cosmic
+        cosmic-autologin
+        cosmic-noxwayland
+        cosmic-autologin-noxwayland
+        ;
+    };
+
+    updateScript = nix-update-script {
+      extraArgs = [
+        "--version-regex"
+        "epoch-(.*)"
+      ];
+    };
   };
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/pop-os/cosmic-settings-daemon";
     description = "Settings Daemon for the COSMIC Desktop Environment";
     mainProgram = "cosmic-settings-daemon";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [
-      nyabinary
-      drakon64
-    ];
-    platforms = platforms.linux;
+    license = lib.licenses.gpl3Only;
+    teams = [ lib.teams.cosmic ];
+    platforms = lib.platforms.linux;
   };
 })

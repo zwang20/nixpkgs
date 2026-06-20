@@ -4,32 +4,32 @@
   fetchFromGitHub,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "tfupdate";
-  version = "0.8.5";
+  version = "0.9.4";
 
   src = fetchFromGitHub {
     owner = "minamijoyo";
     repo = "tfupdate";
-    rev = "v${version}";
-    sha256 = "sha256-iWiY1IuNZCqHpnAoib0SkWwAg1Mnuqr2QjKI3KZGYs0=";
+    rev = "v${finalAttrs.version}";
+    sha256 = "sha256-r5z7xR/Dq4opmOHUzYRzcFqdiCFiYIhNeeuL1532Ht8=";
   };
 
-  vendorHash = "sha256-/ZNWVuGInZY/t0s317FQstEPeJpTKWMXUVo8cE44GkI=";
+  vendorHash = "sha256-0odAvB2VqYZnPu4wlXpPeR2ioEq3WOGyvpRm72/GWsg=";
 
   # Tests start http servers which need to bind to local addresses:
   # panic: httptest: failed to listen on a port: listen tcp6 [::1]:0: bind: operation not permitted
   __darwinAllowLocalNetworking = true;
 
-  meta = with lib; {
+  meta = {
     description = "Update version constraints in your Terraform configurations";
     mainProgram = "tfupdate";
     homepage = "https://github.com/minamijoyo/tfupdate";
-    changelog = "https://github.com/minamijoyo/tfupdate/blob/${src.rev}/CHANGELOG.md";
-    license = licenses.mit;
-    maintainers = with maintainers; [
+    changelog = "https://github.com/minamijoyo/tfupdate/blob/${finalAttrs.src.rev}/CHANGELOG.md";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [
       Intuinewin
       qjoly
     ];
   };
-}
+})

@@ -3,7 +3,7 @@
   SDL,
   fetchFromGitHub,
   giflib,
-  libXpm,
+  libxpm,
   libjpeg,
   libpng,
   libtiff,
@@ -15,13 +15,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "SDL_image";
-  version = "1.2.12-unstable-2025-02-13";
+  version = "1.2.12-unstable-2026-05-13";
 
   src = fetchFromGitHub {
     owner = "libsdl-org";
     repo = "SDL_image";
-    rev = "74e8d577216e3c3a969e67b68b2e4769fcbf8fdd";
-    hash = "sha256-WSNH7Pw/tL5rgPQtOjxRGp2UlYSJJmXS2YQS+fAkXSc=";
+    rev = "822207ee09095b8f0a936f6f2d62e020f92a4c24";
+    hash = "sha256-a4WmLjsVC409UTbTVtMmRXaYuNN3fVwzz8F4XMV/cNI=";
   };
 
   configureFlags = [
@@ -42,16 +42,12 @@ stdenv.mkDerivation (finalAttrs: {
   buildInputs = [
     SDL
     giflib
-    libXpm
+    libxpm
     libjpeg
     libpng
     libtiff
     libwebp
   ];
-
-  env = lib.optionalAttrs stdenv.cc.isGNU {
-    NIX_CFLAGS_COMPILE = "-Wno-error=incompatible-pointer-types";
-  };
 
   outputs = [
     "out"
@@ -70,7 +66,7 @@ stdenv.mkDerivation (finalAttrs: {
     homepage = "http://www.libsdl.org/projects/SDL_image/";
     description = "SDL image library";
     license = lib.licenses.zlib;
-    maintainers = lib.teams.sdl.members ++ (with lib.maintainers; [ ]);
+    teams = [ lib.teams.sdl ];
     inherit (SDL.meta) platforms;
   };
 })

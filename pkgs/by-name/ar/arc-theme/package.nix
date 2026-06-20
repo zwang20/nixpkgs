@@ -10,20 +10,20 @@
   gnome-themes-extra,
   gtk-engine-murrine,
   inkscape,
-  cinnamon-common,
+  cinnamon,
   makeFontsConf,
   python3,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "arc-theme";
   version = "20221218";
 
   src = fetchFromGitHub {
     owner = "jnsh";
     repo = "arc-theme";
-    rev = version;
-    sha256 = "sha256-7VmqsUCeG5GwmrVdt9BJj0eZ/1v+no/05KwGFb7E9ns=";
+    tag = finalAttrs.version;
+    hash = "sha256-7VmqsUCeG5GwmrVdt9BJj0eZ/1v+no/05KwGFb7E9ns=";
   };
 
   nativeBuildInputs = [
@@ -50,25 +50,25 @@ stdenv.mkDerivation rec {
   '';
 
   # Fontconfig error: Cannot load default config file: No such file: (null)
-  FONTCONFIG_FILE = makeFontsConf { fontDirectories = [ ]; };
+  env.FONTCONFIG_FILE = makeFontsConf { fontDirectories = [ ]; };
 
   mesonFlags = [
     # "-Dthemes=cinnamon,gnome-shell,gtk2,gtk3,plank,xfwm,metacity"
     # "-Dvariants=light,darker,dark,lighter"
-    "-Dcinnamon_version=${cinnamon-common.version}"
+    "-Dcinnamon_version=${cinnamon.version}"
     "-Dgnome_shell_version=${gnome-shell.version}"
     # You will need to patch gdm to make use of this.
     "-Dgnome_shell_gresource=true"
   ];
 
-  meta = with lib; {
+  meta = {
     description = "Flat theme with transparent elements for GTK 3, GTK 2 and Gnome Shell";
     homepage = "https://github.com/jnsh/arc-theme";
-    license = licenses.gpl3Only;
-    platforms = platforms.linux;
-    maintainers = with maintainers; [
+    license = lib.licenses.gpl3Only;
+    platforms = lib.platforms.linux;
+    maintainers = with lib.maintainers; [
       simonvandel
       romildo
     ];
   };
-}
+})

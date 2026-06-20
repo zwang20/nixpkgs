@@ -3,7 +3,7 @@
   fetchurl,
   tcl,
   tk,
-  libX11,
+  libx11,
   zlib,
   makeWrapper,
   which,
@@ -31,13 +31,17 @@ tcl.mkTclDerivation rec {
   ];
   buildInputs = [
     tk
-    libX11
+    libx11
     zlib
   ];
 
+  addTclConfigureFlags = false;
   configureFlags = [
     "BINDIR=${placeholder "out"}/bin"
     "SHAREDIR=${placeholder "out"}/share"
+    "--with-tcl=${tcl}/lib"
+    "--with-tclinclude=${tcl}/include"
+    "--exec-prefix=${placeholder "out"}"
   ];
 
   postInstall = ''
@@ -60,11 +64,12 @@ tcl.mkTclDerivation rec {
     ];
   };
 
-  meta = with lib; {
+  meta = {
     description = "Chess database with play and training functionality";
     homepage = "https://scidvspc.sourceforge.net/";
     license = lib.licenses.gpl2Only;
-    maintainers = [ maintainers.paraseba ];
+    mainProgram = "scid";
+    maintainers = [ lib.maintainers.paraseba ];
     platforms = lib.platforms.linux;
   };
 }

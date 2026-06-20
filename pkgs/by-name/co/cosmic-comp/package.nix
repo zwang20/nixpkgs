@@ -5,7 +5,7 @@
   fetchFromGitHub,
   libcosmicAppHook,
   pkg-config,
-  libdisplay-info,
+  libdisplay-info_0_2,
   libgbm,
   libinput,
   pixman,
@@ -20,19 +20,21 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "cosmic-comp";
-  version = "1.0.0-alpha.6";
+  version = "1.0.16";
 
+  # nixpkgs-update: no auto update
   src = fetchFromGitHub {
     owner = "pop-os";
     repo = "cosmic-comp";
     tag = "epoch-${finalAttrs.version}";
-    hash = "sha256-CygtVtzO8JJQv+G3yx/OCCy8BlPqyNqcmf3Mv1gFuT4=";
+    hash = "sha256-3WPZk/o+cfq3wwKEuYejMh+pn2o823m98OO3crFaNX4=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-bfVsfrxGi0Lq/YRddCVhfqXL8kPGL9p4bqSNPsmjx0o=";
+  cargoHash = "sha256-ki+unf58rXBCpj5PCpBcg/6FWo16+MdPQWae+w1YkJ8=";
 
   separateDebugInfo = true;
+
+  __structuredAttrs = true;
 
   nativeBuildInputs = [
     libcosmicAppHook
@@ -40,13 +42,14 @@ rustPlatform.buildRustPackage (finalAttrs: {
   ];
 
   buildInputs = [
-    libdisplay-info
+    libdisplay-info_0_2
     libgbm
     libinput
     pixman
     seatd
     udev
-  ] ++ lib.optional useSystemd systemd;
+  ]
+  ++ lib.optional useSystemd systemd;
 
   # Only default feature is systemd
   buildNoDefaultFeatures = !useSystemd;
@@ -67,10 +70,9 @@ rustPlatform.buildRustPackage (finalAttrs: {
         cosmic-autologin-noxwayland
         ;
     };
+
     updateScript = nix-update-script {
       extraArgs = [
-        "--version"
-        "unstable"
         "--version-regex"
         "epoch-(.*)"
       ];
@@ -82,11 +84,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     description = "Compositor for the COSMIC Desktop Environment";
     mainProgram = "cosmic-comp";
     license = lib.licenses.gpl3Only;
-    maintainers = with lib.maintainers; [
-      qyliss
-      nyabinary
-      HeitorAugustoLN
-    ];
+    teams = [ lib.teams.cosmic ];
     platforms = lib.platforms.linux;
   };
 })

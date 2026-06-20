@@ -6,23 +6,24 @@
   testers,
   cmake,
   doxygen,
-  extra-cmake-modules,
+  kdePackages,
   graphviz,
   libsForQt5,
   perl,
   pkg-config,
   tzdata,
+  ctestCheckHook,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "mkcal";
-  version = "0.7.26";
+  version = "0.7.33";
 
   src = fetchFromGitHub {
     owner = "sailfishos";
     repo = "mkcal";
     tag = finalAttrs.version;
-    hash = "sha256-myOSzxzZmuOU7MShPfUOsHJilw9B6jh3W1S3P5dhcvs=";
+    hash = "sha256-ayWzK69iWE2z7hHiEZ7oKLXkDmH+ZFRaaMRJhHVAbl0=";
   };
 
   outputs = [
@@ -41,31 +42,29 @@ stdenv.mkDerivation (finalAttrs: {
 
   strictDeps = true;
 
-  nativeBuildInputs =
-    [
-      cmake
-      doxygen
-      graphviz
-      perl
-      pkg-config
-    ]
-    ++ (with libsForQt5; [
-      wrapQtAppsHook
-    ]);
+  nativeBuildInputs = [
+    cmake
+    kdePackages.extra-cmake-modules
+    doxygen
+    graphviz
+    perl
+    pkg-config
+  ]
+  ++ (with libsForQt5; [
+    wrapQtAppsHook
+  ]);
 
-  buildInputs =
-    [
-      extra-cmake-modules
-    ]
-    ++ (with libsForQt5; [
-      kcalendarcore
-      qtbase
-      qtpim
-      timed
-    ]);
+  buildInputs = with libsForQt5; [
+    kdePackages.extra-cmake-modules
+    __internalKF5.kcalendarcore
+    qtbase
+    qtpim
+    timed
+  ];
 
   nativeCheckInputs = [
     tzdata
+    ctestCheckHook
   ];
 
   cmakeFlags = [
@@ -73,25 +72,17 @@ stdenv.mkDerivation (finalAttrs: {
     (lib.cmakeBool "BUILD_TESTS" finalAttrs.finalPackage.doCheck)
     (lib.cmakeBool "INSTALL_TESTS" false)
     (lib.cmakeBool "BUILD_DOCUMENTATION" true)
-    (lib.cmakeFeature "CMAKE_CTEST_ARGUMENTS" (
-      lib.concatStringsSep ";" [
-        # Exclude tests
-        "-E"
-        (lib.strings.escapeShellArg "(${
-          lib.concatStringsSep "|" [
-            # Test expects to be passed a real, already existing database to test migrations. We don't have one
-            "tst_perf"
-
-            # 10/97 tests fail. Half seem related to time (zone) issues w/ local time / Helsinki timezone
-            # Other half are x-1/x on lists of alarms/events
-            "tst_storage"
-          ]
-        })")
-      ]
-    ))
   ];
 
   doCheck = stdenv.buildPlatform.canExecute stdenv.hostPlatform;
+  disabledTests = [
+    # Test expects to be passed a real, already existing database to test migrations. We don't have one
+    "tst_perf"
+
+    # 10/97 tests fail. Half seem related to time (zone) issues w/ local time / Helsinki timezone
+    # Other half are x-1/x on lists of alarms/events
+    "tst_storage"
+  ];
 
   # Parallelism breaks tests
   enableParallelChecking = false;
@@ -116,7 +107,7 @@ stdenv.mkDerivation (finalAttrs: {
     changelog = "https://github.com/sailfishos/mkcal/releases/tag/${finalAttrs.version}";
     license = lib.licenses.lgpl2Plus;
     mainProgram = "mkcaltool";
-    maintainers = lib.teams.lomiri.members;
+    teams = [ lib.teams.lomiri ];
     platforms = lib.platforms.linux;
     pkgConfigModules = [
       "libmkcal-qt5"

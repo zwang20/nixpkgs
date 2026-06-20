@@ -1,8 +1,8 @@
 {
+  lib,
   stdenv,
   stdenvNoCC,
-  lib,
-  callPackage,
+  buildVscode,
   fetchurl,
   nixosTests,
   srcOnly,
@@ -17,7 +17,6 @@
   commandLineArgs ? "",
   useVSCodeRipgrep ? stdenv.hostPlatform.isDarwin,
 }:
-
 let
   inherit (stdenv.hostPlatform) system;
   throwSystem = throw "Unsupported system: ${system}";
@@ -34,34 +33,46 @@ let
 
   archive_fmt = if stdenv.hostPlatform.isDarwin then "zip" else "tar.gz";
 
-  sha256 =
+  hash =
     {
-      x86_64-linux = "05abq952zv63zz99dib7l1y7w15l4d8zjk924ag25jasbqdl48fm";
-      x86_64-darwin = "0ak1avw3s327npqx3fb0gxpdwa6hwf48fv1xf3kdrcjrizwwdy1y";
-      aarch64-linux = "02v57sfg13xdy7rzn7dvymimp6q3wlf4fl08nv75vv8r9kdpwza0";
-      aarch64-darwin = "0km0spd1ppmlkwnf1yc1hm8b1hwddhy25ydfb8lbfcx3y2n0dgag";
-      armv7l-linux = "0h96b3cpnzz7wcnnarl6dd0cw50m54k74lbxbdasl3kq84zq8y0h";
+      x86_64-linux = "sha256-L0o9+vxfAkmtOHJvmf0G8WIbp3bXjAuuIAtTtFvbwjQ=";
+      x86_64-darwin = "sha256-WYcRDrFLEjwyQhVdNASz3JUQlLuubDuPjBXa/ROs3h8=";
+      aarch64-linux = "sha256-3CBrenqZs35gMWmVtI//4w0JGSKP8cbu3cJH14P4aEU=";
+      aarch64-darwin = "sha256-0JVfgcYxgdaeWfeGFrfG3qxpWHilQte/dLiW33yxm8o=";
+      armv7l-linux = "sha256-O8nDg1aJ0IbjbRS5kiNoFHzciyHErKK8PP+uujzJOxk=";
     }
     .${system} or throwSystem;
-in
-callPackage ./generic.nix rec {
+
   # Please backport all compatible updates to the stable release.
   # This is important for the extension ecosystem.
-  version = "1.99.1";
-  pname = "vscode" + lib.optionalString isInsiders "-insiders";
+  version = "1.124.2";
+
+  # The update server (update.code.visualstudio.com) expects the version path
+  # segment in X.Y.Z form, so we normalize X.Y to X.Y.0 (e.g. "1.110" → "1.110.0").
+  # Upstream GitHub release tags may use X.Y, which is why this normalization is needed.
+  downloadVersion = lib.versions.pad 3 version;
 
   # This is used for VS Code - Remote SSH test
-  rev = "7c6fdfb0b8f2f675eb0b47f3d95eeca78962565b";
+  rev = "6928394f91b684055b873eecb8bc281365131f1c";
+in
+buildVscode {
+  pname = "vscode" + lib.optionalString isInsiders "-insiders";
 
   executableName = "code" + lib.optionalString isInsiders "-insiders";
   longName = "Visual Studio Code" + lib.optionalString isInsiders " - Insiders";
   shortName = "Code" + lib.optionalString isInsiders " - Insiders";
-  inherit commandLineArgs useVSCodeRipgrep sourceExecutableName;
+  inherit
+    version
+    rev
+    commandLineArgs
+    useVSCodeRipgrep
+    sourceExecutableName
+    ;
 
   src = fetchurl {
-    name = "VSCode_${version}_${plat}.${archive_fmt}";
-    url = "https://update.code.visualstudio.com/${version}/${plat}/stable";
-    inherit sha256;
+    name = "VSCode_${downloadVersion}_${plat}.${archive_fmt}";
+    url = "https://update.code.visualstudio.com/${downloadVersion}/${plat}/stable";
+    inherit hash;
   };
 
   # We don't test vscode on CI, instead we test vscodium
@@ -75,7 +86,7 @@ callPackage ./generic.nix rec {
     src = fetchurl {
       name = "vscode-server-${rev}.tar.gz";
       url = "https://update.code.visualstudio.com/commit:${rev}/server-linux-x64/stable";
-      sha256 = "03znn17l4qb40yml5kq5l7j65yr5axxa44g6a03g6dkj8fqnaz8s";
+      hash = "sha256-S4RcYGjK9vEtPp+vTNFV4SN+7osYzfuCiXmQC39PYhI=";
     };
     stdenv = stdenvNoCC;
   };
@@ -89,28 +100,31 @@ callPackage ./generic.nix rec {
   # See https://eclecticlight.co/2022/06/17/app-security-changes-coming-in-ventura/ for more information.
   dontFixup = stdenv.hostPlatform.isDarwin;
 
-  meta = with lib; {
-    description = ''
-      Open source source code editor developed by Microsoft for Windows,
-      Linux and macOS
-    '';
+  hasVsceSign = true;
+
+  meta = {
+    description = "Code editor developed by Microsoft";
     mainProgram = "code";
     longDescription = ''
-      Open source source code editor developed by Microsoft for Windows,
-      Linux and macOS. It includes support for debugging, embedded Git
-      control, syntax highlighting, intelligent code completion, snippets,
-      and code refactoring. It is also customizable, so users can change the
-      editor's theme, keyboard shortcuts, and preferences
+      Code editor developed by Microsoft. It includes support for debugging,
+      embedded Git control, syntax highlighting, intelligent code completion,
+      snippets, and code refactoring. It is also customizable, so users can
+      change the editor's theme, keyboard shortcuts, and preferences
     '';
     homepage = "https://code.visualstudio.com/";
     downloadPage = "https://code.visualstudio.com/Updates";
-    license = licenses.unfree;
-    maintainers = with maintainers; [
+    changelog = "https://code.visualstudio.com/updates/v${
+      lib.replaceString "." "_" (lib.versions.majorMinor version)
+    }";
+    license = lib.licenses.unfree;
+    maintainers = with lib.maintainers; [
       eadwu
-      synthetica
       bobby285271
       johnrtitor
       jefflabonte
+      wetrustinprize
+      oenu
+      yuannan
     ];
     platforms = [
       "x86_64-linux"

@@ -1,60 +1,101 @@
 {
   lib,
+  stdenv,
   fetchFromGitHub,
-  rustPlatform,
-
-  cargo-tauri,
   nodejs,
-  pnpm,
-
-  pkg-config,
-  wrapGAppsHook3,
-
-  openssl,
-  libsoup_2_4,
-  webkitgtk_4_1,
-  glib-networking,
+  pnpm_9,
+  fetchPnpmDeps,
+  pnpmConfigHook,
+  makeWrapper,
+  electron,
   nix-update-script,
+  makeDesktopItem,
+  copyDesktopItems,
 }:
 
-rustPlatform.buildRustPackage (finalAttrs: {
+stdenv.mkDerivation (finalAttrs: {
   pname = "aonsoku";
-  version = "0.8.3";
+  version = "0.14.0";
 
   src = fetchFromGitHub {
     owner = "victoralvesf";
     repo = "aonsoku";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-A1U1ubprwYJvyqTe5gVYTo8687sfP/76GfA+2EmtoCo=";
+    hash = "sha256-Rbte0qYcZQ70E6ib8rj0YsNP5SMNO8eC3MEvWcT7N08=";
   };
 
-  pnpmDeps = pnpm.fetchDeps {
+  patches = [
+    ./remove_updater.patch
+    ./fix_appid.patch
+  ];
+
+  pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    hash = "sha256-BMEBJRycmOgsI1loTPTNY1dVOJ0HTCnzg0QyNAzZMn4=";
+    pnpm = pnpm_9;
+    fetcherVersion = 3;
+    hash = "sha256-oBwqYOx2KEtF0qdMKEIgdArZ4xs/AyeOqFoU4nHl3xY=";
   };
-
-  cargoRoot = "src-tauri";
-  buildAndTestSubdir = finalAttrs.cargoRoot;
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-yuKaf05bQFah3MTC0eF82pMmTJrllWfUKX3SdIWbPjM=";
-
-  patches = [ ./remove_updater.patch ];
 
   nativeBuildInputs = [
     nodejs
-    pnpm.configHook
-    cargo-tauri.hook
-
-    pkg-config
-    wrapGAppsHook3
+    pnpm_9
+    pnpmConfigHook
+    makeWrapper
+    electron
+    copyDesktopItems
   ];
 
-  buildInputs = [
-    openssl
-    libsoup_2_4
-    webkitgtk_4_1
-    glib-networking
+  buildInputs = [ finalAttrs.pnpmDeps ];
+
+  desktopItems = [
+    (makeDesktopItem {
+      name = "aonsoku";
+      desktopName = "Aonsoku";
+      comment = "Modern desktop client for Navidrome/Subsonic servers";
+      exec = "Aonsoku";
+      icon = "aonsoku";
+      categories = [
+        "AudioVideo"
+        "Audio"
+        "Music"
+        "Player"
+      ];
+      startupWMClass = "Aonsoku";
+    })
   ];
+
+  preConfigure = ''
+    export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+  '';
+
+  buildPhase = ''
+    runHook preBuild
+    pnpm run electron:build
+    runHook postBuild
+  '';
+
+  installPhase = ''
+    runHook preInstall
+
+    mkdir -p $out/lib/aonsoku/out
+    cp -r out/* $out/lib/aonsoku/out/
+
+    mkdir -p $out/lib/aonsoku/out/main/resources
+    cp -r resources/* $out/lib/aonsoku/out/main/resources/
+
+    cp -r node_modules $out/lib/aonsoku/
+
+    mkdir -p $out/bin
+    makeWrapper ${electron}/bin/electron $out/bin/Aonsoku \
+      --add-flags $out/lib/aonsoku/out/main/index.js \
+      --set ELECTRON_IS_DEV 0
+
+    mkdir -p $out/share/icons/hicolor/512x512/apps
+    cp resources/icons/icon.png \
+      $out/share/icons/hicolor/512x512/apps/aonsoku.png
+
+    runHook postInstall
+  '';
 
   passthru.updateScript = nix-update-script { };
 
@@ -63,7 +104,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
     homepage = "https://github.com/victoralvesf/aonsoku";
     changelog = "https://github.com/victoralvesf/aonsoku/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ genga898 ];
+    maintainers = with lib.maintainers; [
+      autrimpo
+      genga898
+    ];
     mainProgram = "Aonsoku";
   };
 })

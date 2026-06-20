@@ -14,7 +14,7 @@
   libayatana-common,
   librda,
   lomiri,
-  mate,
+  mate-settings-daemon,
   pkg-config,
   systemd,
   wrapGAppsHook3,
@@ -22,13 +22,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "ayatana-indicator-session";
-  version = "24.5.0";
+  version = "24.5.1";
 
   src = fetchFromGitHub {
     owner = "AyatanaIndicators";
     repo = "ayatana-indicator-session";
     tag = finalAttrs.version;
-    hash = "sha256-p4nu7ZgnEjnnxNqyZIg//YcssnQcCY7GFDbpGIu1dz0=";
+    hash = "sha256-jqcgQTsC4VBit3wwtKKTdEG71CUPJpeMtpzikE4IGhE=";
   };
 
   postPatch = ''
@@ -59,7 +59,7 @@ stdenv.mkDerivation (finalAttrs: {
     # is there a better way to give it access to DE-specific schemas as needed?
     # https://github.com/AyatanaIndicators/ayatana-indicator-session/blob/88846bad7ee0aa8e0bb122816d06f9bc887eb464/src/service.c#L1387-L1413
     gnome-settings-daemon
-    mate.mate-settings-daemon
+    mate-settings-daemon
   ];
 
   nativeCheckInputs = [ dbus ];
@@ -84,7 +84,10 @@ stdenv.mkDerivation (finalAttrs: {
         "lomiri"
       ];
     };
-    tests.vm = nixosTests.ayatana-indicators;
+    tests = {
+      startup = nixosTests.ayatana-indicators;
+      lomiri = nixosTests.lomiri.desktop-ayatana-indicator-session;
+    };
     updateScript = gitUpdater { };
   };
 

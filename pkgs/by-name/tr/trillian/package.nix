@@ -4,16 +4,16 @@
   fetchFromGitHub,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "trillian";
-  version = "1.7.1";
-  vendorHash = "sha256-muPKjhUbpBJBMq8abcgTzq8/bjGXVPLoYHqQJKv8a1k=";
+  version = "1.7.3";
+  vendorHash = "sha256-PomzPYtLEDx0mjTTidfp9dlvnW4mcVIka5AekPNYU2g=";
 
   src = fetchFromGitHub {
     owner = "google";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-TOJqBfYVubwgDF/9i6lwmCLj6x0utzz0O7QJ5SqshCA=";
+    repo = "trillian";
+    rev = "v${finalAttrs.version}";
+    sha256 = "sha256-QOR98Xpf2iwGpqzEuB58gMsbYITiksMX4JmfqiKjeVw=";
   };
 
   subPackages = [
@@ -24,10 +24,10 @@ buildGoModule rec {
     "cmd/updatetree"
   ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/google/trillian";
     description = "Transparent, highly scalable and cryptographically verifiable data store";
-    license = [ licenses.asl20 ];
+    license = [ lib.licenses.asl20 ];
     maintainers = [ ];
   };
-}
+})

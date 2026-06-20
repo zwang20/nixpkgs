@@ -8,6 +8,7 @@
   curl,
   catt,
   syncplay,
+  openssl,
   ffmpeg,
   fzf,
   aria2,
@@ -27,27 +28,27 @@ in
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "ani-cli";
-  version = "4.9";
+  version = "4.14";
 
   src = fetchFromGitHub {
     owner = "pystardust";
     repo = "ani-cli";
-    rev = "v${finalAttrs.version}";
-    hash = "sha256-7zuepWTtrFp9RW3zTSjPzyJ9e+09PdKgwcnV+DqPEUY=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-OyCKDN89sBz59+3JncMDyNOq8UMqqjara+A0Owo3oko=";
   };
 
   nativeBuildInputs = [ makeWrapper ];
-  runtimeInputs =
-    [
-      gnugrep
-      gnused
-      curl
-      fzf
-      ffmpeg
-      aria2
-    ]
-    ++ lib.optional chromecastSupport catt
-    ++ lib.optional syncSupport syncplay;
+  runtimeInputs = [
+    openssl
+    gnugrep
+    gnused
+    curl
+    fzf
+    ffmpeg
+    aria2
+  ]
+  ++ lib.optional chromecastSupport catt
+  ++ lib.optional syncSupport syncplay;
 
   installPhase = ''
     runHook preInstall
@@ -71,5 +72,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     ];
     platforms = lib.platforms.unix;
     mainProgram = "ani-cli";
+    sourceProvenance = with lib.sourceTypes; [
+      fromSource
+    ];
   };
 })

@@ -1,26 +1,23 @@
 {
   lib,
   stdenv,
-  overrideSDK,
   cmakeMinimal,
   fetchFromGitHub,
   ninja,
   testers,
   aws-lc,
+  nix-update-script,
   useSharedLibraries ? !stdenv.hostPlatform.isStatic,
 }:
-let
-  awsStdenv = if stdenv.hostPlatform.isDarwin then overrideSDK stdenv "11.0" else stdenv;
-in
-awsStdenv.mkDerivation (finalAttrs: {
+stdenv.mkDerivation (finalAttrs: {
   pname = "aws-lc";
-  version = "1.49.1";
+  version = "5.0.0";
 
   src = fetchFromGitHub {
     owner = "aws";
     repo = "aws-lc";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-gnYtzXHaS7QLcVmIcQsQDy6wNesQJ2ruE9W32HqiA5A=";
+    hash = "sha256-Dvy6mzEfKgimxCGp7q2fPk9urBMJMU6gZmaZXwdZfWw=";
   };
 
   outputs = [
@@ -50,6 +47,11 @@ awsStdenv.mkDerivation (finalAttrs: {
     runHook postCheck
   '';
 
+  postInstall = ''
+    moveToOutput lib/crypto/cmake "$dev"
+    moveToOutput lib/ssl/cmake "$dev"
+  '';
+
   env.NIX_CFLAGS_COMPILE = toString (
     lib.optionals stdenv.cc.isGNU [
       # Needed with GCC 12 but breaks on darwin (with clang)
@@ -57,26 +59,24 @@ awsStdenv.mkDerivation (finalAttrs: {
     ]
   );
 
-  postFixup = ''
-    for f in $out/lib/crypto/cmake/*/crypto-targets.cmake; do
-      substituteInPlace "$f" \
-        --replace-fail 'INTERFACE_INCLUDE_DIRECTORIES "''${_IMPORT_PREFIX}/include"' 'INTERFACE_INCLUDE_DIRECTORIES ""'
-    done
-  '';
+  __darwinAllowLocalNetworking = true;
 
-  passthru.tests = {
-    version = testers.testVersion {
-      package = aws-lc;
-      command = "bssl version";
+  passthru = {
+    tests = {
+      version = testers.testVersion {
+        package = aws-lc;
+        command = "bssl version";
+      };
+      pkg-config = testers.hasPkgConfigModules {
+        package = aws-lc;
+        moduleNames = [
+          "libcrypto"
+          "libssl"
+          "openssl"
+        ];
+      };
     };
-    pkg-config = testers.hasPkgConfigModules {
-      package = aws-lc;
-      moduleNames = [
-        "libcrypto"
-        "libssl"
-        "openssl"
-      ];
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = {

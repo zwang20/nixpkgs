@@ -11,24 +11,28 @@
 
 let
   hashes = {
-    # Issue tracking PostgreSQL 17 support: https://github.com/apache/age/issues/2111
-    # "17" = "";
-    "16" = "sha256-sXh/vmGyYj00ALfFVdeql2DZ6nCJQDNKyNgzlOZnPAw=";
+    "18" = "sha256-Hqjg62YLTLEa6wRA5S4MAIED7Hobtiih4E55cSzVTqE";
+    "17" = "sha256-hAjhNj/benwZbbuxDl9RSjwWRai9CUozbEN6ecPKoFE=";
+    "16" = "sha256-iukdi2c3CukGvjuTojybFFAZBlAw8GEfzFPr2qJuwTA=";
     "15" = "sha256-webZWgWZGnSoXwTpk816tjbtHV1UIlXkogpBDAEL4gM=";
     "14" = "sha256-jZXhcYBubpjIJ8M5JHXKV5f6VK/2BkypH3P7nLxZz3E=";
     "13" = "sha256-HR6nnWt/V2a0rD5eHHUsFIZ1y7lmvLz36URt9pPJnCw=";
   };
 in
-postgresqlBuildExtension rec {
+postgresqlBuildExtension (finalAttrs: {
   pname = "age";
-  version = "1.5.0-rc0";
+  version =
+    if lib.versionAtLeast postgresql.version "17" then
+      "1.7.0-rc0"
+    else if lib.versionAtLeast postgresql.version "16" then
+      "1.6.0-rc0"
+    else
+      "1.5.0-rc0";
 
   src = fetchFromGitHub {
     owner = "apache";
     repo = "age";
-    tag = "PG${lib.versions.major postgresql.version}/v${
-      builtins.replaceStrings [ "." ] [ "_" ] version
-    }";
+    tag = "PG${lib.versions.major postgresql.version}/v${finalAttrs.version}";
     hash =
       hashes.${lib.versions.major postgresql.version}
       or (throw "Source for Age is not available for ${postgresql.version}");
@@ -42,7 +46,7 @@ postgresqlBuildExtension rec {
 
   enableUpdateScript = false;
   passthru.tests = stdenv.mkDerivation {
-    inherit version src;
+    inherit (finalAttrs) version src;
 
     pname = "age-regression";
 
@@ -50,7 +54,7 @@ postgresqlBuildExtension rec {
 
     buildPhase =
       let
-        postgresqlAge = postgresql.withPackages (ps: [ ps.age ]);
+        postgresqlAge = postgresql.withPackages (_: [ finalAttrs.finalPackage ]);
       in
       ''
         # The regression tests need to be run in the order specified in the Makefile.
@@ -76,9 +80,9 @@ postgresqlBuildExtension rec {
     broken = !builtins.elem (lib.versions.major postgresql.version) (builtins.attrNames hashes);
     description = "Graph database extension for PostgreSQL";
     homepage = "https://age.apache.org/";
-    changelog = "https://github.com/apache/age/raw/v${src.rev}/RELEASE";
+    changelog = "https://github.com/apache/age/raw/PG${lib.versions.major postgresql.version}/v${finalAttrs.version}/RELEASE";
     maintainers = [ ];
     platforms = postgresql.meta.platforms;
     license = lib.licenses.asl20;
   };
-}
+})

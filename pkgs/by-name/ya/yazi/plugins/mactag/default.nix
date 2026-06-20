@@ -5,18 +5,17 @@
 }:
 mkYaziPlugin {
   pname = "mactag.yazi";
-  version = "25.4.4-unstable-2025-04-04";
+  version = "0-unstable-2026-04-10";
 
   src = fetchFromGitHub {
     owner = "yazi-rs";
     repo = "plugins";
-    rev = "9a095057d698aaaedc4dd23d638285bd3fd647e9";
-    hash = "sha256-Lx+TliqMuaXpjaUtjdUac7ODg2yc3yrd1mSWJo9Mz2Q=";
+    rev = "babfd0f6144aedcc7af11852ce962b989d052898";
+    hash = "sha256-y/UnRuZ2QytCdtGhxkbVvaGXglpqwufaUddXOzs7fzo=";
   };
 
   meta = {
-    description = "Previewing archive contents with mactag";
-    homepage = "https://yazi-rs.github.io";
+    description = "Bring macOS's awesome tagging feature to Yazi";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ khaneliman ];
     platforms = lib.platforms.darwin;

@@ -1,6 +1,9 @@
 {
+  stdenv,
   rustPlatform,
-  pnpm_9,
+  pnpm_11,
+  fetchPnpmDeps,
+  pnpmConfigHook,
   cargo-tauri,
   nodejs,
   pkg-config,
@@ -10,62 +13,70 @@
   gtk3,
   librsvg,
   openssl,
+  glib-networking,
   autoPatchelfHook,
   lib,
   nix-update-script,
   moreutils,
   jq,
+  gst_all_1,
 }:
-
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "readest";
-  version = "0.9.32";
+  version = "0.11.4";
 
   src = fetchFromGitHub {
     owner = "readest";
     repo = "readest";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-EdEjRKBrWGIwJbmNLDvJl/1Hq+Cs6w815ND6yH3/+TI=";
+    hash = "sha256-tudx4LLRZXjA5wgfnA7+pBgBIUv1ZOYl2DZbsx7sWr0=";
     fetchSubmodules = true;
   };
 
   postUnpack = ''
-    # pnpm.configHook has to write to ../.., as our sourceRoot is set to apps/readest-app
+    # pnpm.configHook has to write to ../.., as our sourceRoot is set to
+    # apps/readest-app
     chmod -R +w .
   '';
 
   sourceRoot = "${finalAttrs.src.name}/apps/readest-app";
 
-  pnpmDeps = pnpm_9.fetchDeps {
+  pnpmRoot = "../..";
+  pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    hash = "sha256-6JFBw/jktEQBXum7Cb4TrntbrnVQM36jE6sby2bmIlw=";
+    pnpm = pnpm_11;
+    fetcherVersion = 3;
+    hash = "sha256-K6KQfXKBopTFJ4LKbFYSe0wVtwWkkhj40nMzYosBeGw=";
   };
 
-  pnpmRoot = "../..";
-
-  useFetchCargoVendor = true;
-
-  cargoHash = "sha256-2XYfcYjrg7RUXuI0B4i9DVNr0i0bYNYHj1peAi77QaE=";
-
   cargoRoot = "../..";
+  cargoHash = "sha256-HQ7nQvxpfGTudOTGVaXRPqaxFrAOA2HnIcgFpmJsgDI=";
 
   buildAndTestSubdir = "src-tauri";
 
   postPatch = ''
-    substituteInPlace src-tauri/Cargo.toml \
-      --replace-fail '"devtools"' '"devtools", "rustls-tls"'
     substituteInPlace src-tauri/tauri.conf.json \
       --replace-fail '"createUpdaterArtifacts": true' '"createUpdaterArtifacts": false' \
       --replace-fail '"Readest"' '"readest"'
     jq 'del(.plugins."deep-link")' src-tauri/tauri.conf.json | sponge src-tauri/tauri.conf.json
     substituteInPlace src/services/constants.ts \
-      --replace-fail "autoCheckUpdates: true" "autoCheckUpdates: false"
+      --replace-fail "autoCheckUpdates: true" "autoCheckUpdates: false" \
+      --replace-fail "telemetryEnabled: true" "telemetryEnabled: false"
+
+    jq '.version = "${finalAttrs.version}"' package.json | sponge package.json
+
+    mkdir -p src-tauri/plugins/tauri-plugin-turso/dist-js
+    cp -r ${finalAttrs.passthru.tursoPlugin} src-tauri/plugins/tauri-plugin-turso/dist-js
+    jq '.scripts.build = "true"' \
+      src-tauri/plugins/tauri-plugin-turso/package.json | \
+      sponge src-tauri/plugins/tauri-plugin-turso/package.json
   '';
 
   nativeBuildInputs = [
     cargo-tauri.hook
     nodejs
-    pnpm_9.configHook
+    pnpmConfigHook
+    pnpm_11
     pkg-config
     wrapGAppsHook3
     autoPatchelfHook
@@ -78,19 +89,60 @@ rustPlatform.buildRustPackage (finalAttrs: {
     gtk3
     librsvg
     openssl
+    glib-networking
+    # TTS
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-plugins-bad
   ];
 
   preBuild = ''
-    pnpm setup-pdfjs
-  '';
+    # set up pdfjs and simplecc
+    pnpm setup-vendors
 
-  preFixup = ''
-    gappsWrapperArgs+=(
-      --set-default WEBKIT_DISABLE_DMABUF_RENDERER 1
-    )
+    # `tauri-plugin-turso` expects frontend files to exist before the build, else it fails with:
+    #
+    # > > tauri-plugin-turso-api@0.1.0 build /build/source/apps/readest-app/src-tauri/plugins/tauri-plugin-turso
+    # > > true
+    # >
+    # >   Error Unable to find your web assets, did you forget to build your web app?
+    #     Your frontendDist is set to "../out" (which is `/build/source/apps/readest-app/out`).
+    pnpm --filter @readest/readest-app build
   '';
 
   passthru.updateScript = nix-update-script { };
+
+  passthru.tursoPluginDeps = fetchPnpmDeps {
+    pname = "tauri-plugin-turso";
+    version = finalAttrs.version;
+    src = "${finalAttrs.src}/apps/readest-app/src-tauri/plugins/tauri-plugin-turso";
+    pnpm = pnpm_11;
+    fetcherVersion = 3;
+    hash = "sha256-RIoTkX0ivaM9EJt3fsLpZhHd2lE4ZtDnAi9syONXUus=";
+  };
+
+  passthru.tursoPlugin = stdenv.mkDerivation {
+    pname = "tauri-plugin-turso";
+    version = finalAttrs.version;
+    src = "${finalAttrs.src}/apps/readest-app/src-tauri/plugins/tauri-plugin-turso";
+
+    nativeBuildInputs = [
+      pnpm_11
+      pnpmConfigHook
+      nodejs
+    ];
+
+    pnpmDeps = finalAttrs.passthru.tursoPluginDeps;
+
+    buildPhase = ''
+      pnpm build
+    '';
+
+    installPhase = ''
+      cp -r dist-js $out
+    '';
+  };
 
   meta = {
     description = "Modern, feature-rich ebook reader";
@@ -98,7 +150,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
     changelog = "https://github.com/readest/readest/releases/tag/v${finalAttrs.version}";
     mainProgram = "readest";
     license = lib.licenses.agpl3Plus;
-    maintainers = with lib.maintainers; [ eljamm ];
+    maintainers = with lib.maintainers; [
+      eljamm
+      kasifrasi
+    ];
     platforms = lib.platforms.linux;
   };
 })

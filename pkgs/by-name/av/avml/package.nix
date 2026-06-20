@@ -9,19 +9,18 @@
   nix-update-script,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "avml";
-  version = "0.15.0";
+  version = "0.18.0";
 
   src = fetchFromGitHub {
     owner = "microsoft";
     repo = "avml";
-    tag = "v${version}";
-    hash = "sha256-QN9GLrs0wjlEdkNnN7Q4Uqu1yJlxD7Dx0SnHJnfV/so=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-d8H+UPCH3yyBNndlGzamgaPlhmvP4rcUSAywx8vYky0=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-u9oYchTvSvlth/Kn6SYuuP2VDVWQDNqueUsKumPooFU=";
+  cargoHash = "sha256-LxoyvjFVn69s9Wf8pF+9wBgOV4fJ/th6GPzLW6hbz0E=";
 
   nativeBuildInputs = [ pkg-config ];
   buildInputs = [ openssl ];
@@ -35,11 +34,11 @@ rustPlatform.buildRustPackage rec {
   passthru.updateScript = nix-update-script { };
 
   meta = {
-    description = "A portable volatile memory acquisition tool for Linux";
+    description = "Portable volatile memory acquisition tool for Linux";
     homepage = "https://github.com/microsoft/avml";
     license = lib.licenses.mit;
     maintainers = [ lib.maintainers.lesuisse ];
     platforms = lib.platforms.linux;
     mainProgram = "avml";
   };
-}
+})

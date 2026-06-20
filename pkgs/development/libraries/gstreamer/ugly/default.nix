@@ -16,18 +16,18 @@
   x264,
   libintl,
   lib,
-  IOKit,
-  CoreFoundation,
-  DiskArbitration,
   enableGplPlugins ? true,
   # Checks meson.is_cross_build(), so even canExecute isn't enough.
   enableDocumentation ? stdenv.hostPlatform == stdenv.buildPlatform,
   hotdoc,
+  directoryListingUpdater,
+  gst-plugins-ugly,
+  apple-sdk_gstreamer,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "gst-plugins-ugly";
-  version = "1.24.10";
+  version = "1.26.11";
 
   outputs = [
     "out"
@@ -35,69 +35,79 @@ stdenv.mkDerivation rec {
   ];
 
   src = fetchurl {
-    url = "https://gstreamer.freedesktop.org/src/${pname}/${pname}-${version}.tar.xz";
-    hash = "sha256-nfb9haclYkHvuyX4SzN1deOzRSZvXas4STceRpR3nxg=";
+    url = "https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-${finalAttrs.version}.tar.xz";
+    hash = "sha256-v5yfcu43SCXP1DhowoW8sBcA3yWEBp51169FX+SCRPg=";
   };
 
-  nativeBuildInputs =
-    [
-      meson
-      ninja
-      gettext
-      pkg-config
-      python3
-    ]
-    ++ lib.optionals enableDocumentation [
-      hotdoc
-    ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    gettext
+    pkg-config
+    python3
+  ]
+  ++ lib.optionals enableDocumentation [
+    hotdoc
+  ];
 
-  buildInputs =
-    [
-      gst-plugins-base
-      orc
-      libintl
-    ]
-    ++ lib.optionals enableGplPlugins [
-      a52dec
-      libcdio
-      libdvdread
-      libmad
-      libmpeg2
-      x264
-    ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      IOKit
-      CoreFoundation
-      DiskArbitration
-    ];
+  buildInputs = [
+    gst-plugins-base
+    orc
+    libintl
+  ]
+  ++ lib.optionals enableGplPlugins [
+    a52dec
+    libcdio
+    libdvdread
+    libmad
+    libmpeg2
+    x264
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    apple-sdk_gstreamer
+  ];
 
-  mesonFlags =
-    [
-      "-Dsidplay=disabled" # sidplay / sidplay/player.h isn't packaged in nixpkgs as of writing
-      (lib.mesonEnable "doc" enableDocumentation)
-    ]
-    ++ (
-      if enableGplPlugins then
-        [
-          "-Dgpl=enabled"
-        ]
-      else
-        [
-          "-Da52dec=disabled"
-          "-Dcdio=disabled"
-          "-Ddvdread=disabled"
-          "-Dmpeg2dec=disabled"
-          "-Dsidplay=disabled"
-          "-Dx264=disabled"
-        ]
-    );
+  mesonFlags = [
+    "-Dglib_debug=disabled" # cast checks should be disabled on stable releases
+    "-Dsidplay=disabled" # sidplay / sidplay/player.h isn't packaged in nixpkgs as of writing
+    (lib.mesonEnable "doc" enableDocumentation)
+  ]
+  ++ (
+    if enableGplPlugins then
+      [
+        "-Dgpl=enabled"
+      ]
+    else
+      [
+        "-Da52dec=disabled"
+        "-Dcdio=disabled"
+        "-Ddvdread=disabled"
+        "-Dmpeg2dec=disabled"
+        "-Dsidplay=disabled"
+        "-Dx264=disabled"
+      ]
+  );
 
   postPatch = ''
     patchShebangs \
       scripts/extract-release-date-from-doap-file.py
   '';
 
-  meta = with lib; {
+  preFixup = ''
+    moveToOutput "lib/gstreamer-1.0/pkgconfig" "$dev"
+  '';
+
+  passthru = {
+    tests = {
+      lgplOnly = gst-plugins-ugly.override {
+        enableGplPlugins = false;
+      };
+    };
+
+    updateScript = directoryListingUpdater { };
+  };
+
+  meta = {
     description = "Gstreamer Ugly Plugins";
     homepage = "https://gstreamer.freedesktop.org";
     longDescription = ''
@@ -106,8 +116,8 @@ stdenv.mkDerivation rec {
       the plug-ins or the supporting libraries might not be how we'd
       like. The code might be widely known to present patent problems.
     '';
-    license = if enableGplPlugins then licenses.gpl2Plus else licenses.lgpl2Plus;
-    platforms = platforms.unix;
-    maintainers = with maintainers; [ matthewbauer ];
+    license = if enableGplPlugins then lib.licenses.gpl2Plus else lib.licenses.lgpl2Plus;
+    platforms = lib.platforms.unix;
+    maintainers = with lib.maintainers; [ tmarkus ];
   };
-}
+})

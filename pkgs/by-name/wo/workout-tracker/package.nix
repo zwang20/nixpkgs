@@ -1,47 +1,45 @@
 {
   lib,
-  buildGo124Module,
+  buildGoModule,
   buildNpmPackage,
   fetchFromGitHub,
   nix-update-script,
   nixosTests,
-  ...
 }:
 let
   pname = "workout-tracker";
-  version = "2.2.0";
+  version = "2.6.0";
 
   src = fetchFromGitHub {
     owner = "jovandeginste";
     repo = "workout-tracker";
     tag = "v${version}";
-    hash = "sha256-6t+p/P8gAHTOMiWJ1lDcpHRPptO+lk0jl/llKy8fNrg=";
+    hash = "sha256-bSeZkUzcRrdH3jSagj842DoxKBf0ysNuINY/g+VWkl0=";
   };
 
   assets = buildNpmPackage {
     pname = "${pname}-assets";
     inherit version src;
-    npmDepsHash = "sha256-LB9YPhz+1FLqf7G4LRdm6OMyIsEQCd23frl5wb5pG/Q=";
-    dontNpmBuild = true;
+    npmDepsHash = "sha256-vSFwCB5qbiHLiK0ns6YUj8yr3FjeNCqT8yvLRQzZycI=";
     makeCacheWritable = true;
     postPatch = ''
-      rm Makefile
+      cd frontend
     '';
     installPhase = ''
       runHook preInstall
-      cp -r . "$out"
+      cp -r ../assets "$out"
       runHook postInstall
     '';
   };
 in
-buildGo124Module {
+buildGoModule {
   inherit pname version src;
 
   vendorHash = null;
 
   postPatch = ''
-    ln -s ${assets}/node_modules ./node_modules
-    make build-dist
+    rm -r assets
+    ln -s ${assets} ./assets
   '';
 
   ldflags = [
@@ -52,6 +50,8 @@ buildGo124Module {
     "-X main.gitRef=v${version}"
     "-X main.gitRefName=v${version}"
   ];
+
+  __darwinAllowLocalNetworking = true;
 
   passthru.updateScript = nix-update-script { };
 

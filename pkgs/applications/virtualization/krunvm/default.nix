@@ -16,18 +16,18 @@
 
 stdenv.mkDerivation rec {
   pname = "krunvm";
-  version = "0.2.3";
+  version = "0.2.6";
 
   src = fetchFromGitHub {
-    owner = "containers";
-    repo = pname;
+    owner = "libkrun";
+    repo = "krunvm";
     rev = "v${version}";
-    hash = "sha256-IXofYsOmbrjq8Zq9+a6pvBYsvZFcKzN5IvCuHaxwazI=";
+    hash = "sha256-peOaPivQKOwioh5skPNFiA3ptHv9pSsnjpy43cms8O8=";
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit src;
-    hash = "sha256-Vmb5IgGyKGekuL018/Xiz9QroWIwTIUxVB57fb0X7Kw=";
+    hash = "sha256-MRcQ0Vnd3PJqE2q981JpXPjwMUKT4t+RcOvzWptK7PQ=";
   };
 
   nativeBuildInputs = [
@@ -36,25 +36,27 @@ stdenv.mkDerivation rec {
     rustc
     asciidoctor
     makeWrapper
-  ] ++ lib.optionals stdenv.hostPlatform.isDarwin [ sigtool ];
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [ sigtool ];
 
-  buildInputs =
-    [ libkrun ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      libiconv
-    ];
+  buildInputs = [
+    libkrun
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    libiconv
+  ];
 
   makeFlags = [ "PREFIX=${placeholder "out"}" ];
 
   postPatch = ''
     # do not pollute etc
     substituteInPlace src/utils.rs \
-      --replace "etc/containers" "share/krunvm/containers"
+      --replace-fail "etc/containers" "share/krunvm/containers"
   '';
 
   postInstall = ''
     mkdir -p $out/share/krunvm/containers
-    install -D -m755 ${buildah-unwrapped.src}/docs/samples/registries.conf $out/share/krunvm/containers/registries.conf
+    install -D -m755 ${buildah-unwrapped.src}/tests/registries.conf $out/share/krunvm/containers/registries.conf
     install -D -m755 ${buildah-unwrapped.src}/tests/policy.json $out/share/krunvm/containers/policy.json
   '';
 
@@ -64,14 +66,14 @@ stdenv.mkDerivation rec {
 
   postFixup = ''
     wrapProgram $out/bin/krunvm \
-      --prefix PATH : ${lib.makeBinPath [ buildah ]} \
+      --prefix PATH : ${lib.makeBinPath [ buildah ]}
   '';
 
-  meta = with lib; {
+  meta = {
     description = "CLI-based utility for creating microVMs from OCI images";
-    homepage = "https://github.com/containers/krunvm";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ nickcao ];
+    homepage = "https://github.com/libkrun/krunvm";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ nickcao ];
     platforms = libkrun.meta.platforms;
     mainProgram = "krunvm";
   };

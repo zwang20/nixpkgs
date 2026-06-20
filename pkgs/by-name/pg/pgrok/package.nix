@@ -5,16 +5,18 @@
   nix-update-script,
   nodejs,
   pnpm_9,
+  fetchPnpmDeps,
+  pnpmConfigHook,
 }:
 
 let
   pname = "pgrok";
-  version = "1.4.4";
+  version = "1.5.0";
   src = fetchFromGitHub {
     owner = "pgrok";
     repo = "pgrok";
     tag = "v${version}";
-    hash = "sha256-1T3PUMgtEfjbCFmUKwKVofHPCCE0Hw1F18iC0mfh4KQ=";
+    hash = "sha256-arPFccclBie3XOBt0q6UC96fPaPc7NmgQDMsd2H2bhI=";
   };
 in
 
@@ -28,15 +30,22 @@ buildGoModule {
 
   nativeBuildInputs = [
     nodejs
-    pnpm_9.configHook
+    pnpmConfigHook
+    pnpm_9
   ];
 
-  env.pnpmDeps = pnpm_9.fetchDeps {
-    inherit pname version src;
-    hash = "sha256-xObDEkNGMXcUqX9thAJoE45yzd7f15k2odDWv9X3RRE=";
+  env.pnpmDeps = fetchPnpmDeps {
+    inherit
+      pname
+      version
+      src
+      ;
+    pnpm = pnpm_9;
+    fetcherVersion = 3;
+    hash = "sha256-D8UZoN0ZnjB8CXQiHmBZwBEt57XGb5SDLg61xxSqNus=";
   };
 
-  vendorHash = "sha256-1s8PPP/Q5bSJleCPZ6P4BwLEan/lelohRKX/0RStdvY=";
+  vendorHash = "sha256-ob8s1jYL2+JGaqjCsM10jgirPiEyTY4U3IVVlHVdoGQ=";
 
   ldflags = [
     "-s"
@@ -73,7 +82,7 @@ buildGoModule {
     description = "Selfhosted TCP/HTTP tunnel, ngrok alternative, written in Go";
     homepage = "https://github.com/pgrok/pgrok";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ marie ];
+    maintainers = with lib.maintainers; [ tbutter ];
     mainProgram = "pgrok";
   };
 }

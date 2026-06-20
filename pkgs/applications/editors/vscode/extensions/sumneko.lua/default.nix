@@ -8,13 +8,16 @@ vscode-utils.buildVscodeMarketplaceExtension {
   mktplcRef = {
     name = "lua";
     publisher = "sumneko";
-    version = "3.7.3";
-    hash = "sha256-JsZrCeT843QvQkebyOVlO9MI2xbEQI8xX0DrPacfGrM=";
+    version = "3.18.2";
+    hash = "sha256-8mvauayksFk/3A7VMJ3EZYyRK8YLgX03W7bzEIdGkXQ=";
   };
 
   # Running chmod in runtime will lock up extension
   # indefinitely if the binary is in nix store.
-  patches = [ ./remove-chmod.patch ];
+  postPatch = ''
+    substituteInPlace client/out/src/languageserver.js \
+      --replace-fail 'await fs.promises.chmod(command, "777");' ""
+  '';
 
   postInstall = ''
     ln -sf ${lua-language-server}/bin/lua-language-server \

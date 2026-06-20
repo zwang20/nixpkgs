@@ -8,33 +8,32 @@
   cargo,
   rustc,
 
-  # dependencies
-  pyarrow,
-
   # optional-dependencies
   pandas,
   polars,
+  pyarrow,
 
   # tests
   pytest-mock,
   pytestCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "fastexcel";
-  version = "0.13.0";
+  version = "0.20.2";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "ToucanToco";
     repo = "fastexcel";
-    tag = "v${version}";
-    hash = "sha256-o2+LNpl431/l4YL5/jnviDwZ5D+WjcFRoNV5hLuvRhM=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-lceUFw9+FsEoCWSNieCYGJW+pCqCpfthEAFCfXKdpj0=";
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit pname version src;
-    hash = "sha256-VZoloGsYLAHqeqRkeZi0PZUpN/i+bWlebzL4wDZNHeo=";
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-04jqysfab+mEir1f2kc15DCdueu1h+HS4FOIol4sBZY=";
   };
 
   nativeBuildInputs = [
@@ -44,13 +43,13 @@ buildPythonPackage rec {
     rustc
   ];
 
-  dependencies = [
-    pyarrow
-  ];
-
   optional-dependencies = {
+    pyarrow = [
+      pyarrow
+    ];
     pandas = [
       pandas
+      pyarrow
     ];
     polars = [
       polars
@@ -59,11 +58,17 @@ buildPythonPackage rec {
 
   pythonImportsCheck = [
     "fastexcel"
+    "fastexcel._fastexcel"
   ];
+
+  preCheck = ''
+    rm -rf python/fastexcel
+  '';
 
   nativeCheckInputs = [
     pandas
     polars
+    pyarrow
     pytest-mock
     pytestCheckHook
   ];
@@ -71,8 +76,8 @@ buildPythonPackage rec {
   meta = {
     description = "Fast excel file reader for Python, written in Rust";
     homepage = "https://github.com/ToucanToco/fastexcel/";
-    changelog = "https://github.com/ToucanToco/fastexcel/releases/tag/v${version}";
+    changelog = "https://github.com/ToucanToco/fastexcel/releases/tag/${finalAttrs.src.tag}";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ GaetanLepage ];
   };
-}
+})

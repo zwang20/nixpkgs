@@ -13,7 +13,13 @@
   wayland-scanner,
   libdrm,
   udev,
-  xorg,
+  libxv,
+  libxrandr,
+  libxext,
+  libx11,
+  libsm,
+  libice,
+  libxcb,
   libGLU,
   libGL,
   gstreamer,
@@ -24,58 +30,62 @@
   # Checks meson.is_cross_build(), so even canExecute isn't enough.
   enableDocumentation ? stdenv.hostPlatform == stdenv.buildPlatform,
   hotdoc,
+  directoryListingUpdater,
+  apple-sdk_gstreamer,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "gstreamer-vaapi";
-  version = "1.24.10";
-
-  src = fetchurl {
-    url = "https://gstreamer.freedesktop.org/src/${pname}/${pname}-${version}.tar.xz";
-    hash = "sha256-IVk9veXGvNz+mRld7748P02gHLhfjsEKrpQ4h9Odikw=";
-  };
+  version = "1.26.11";
 
   outputs = [
     "out"
     "dev"
   ];
 
-  nativeBuildInputs =
-    [
-      meson
-      ninja
-      pkg-config
-      python3
-      bzip2
-      wayland-scanner
-    ]
-    ++ lib.optionals enableDocumentation [
-      hotdoc
-    ];
+  src = fetchurl {
+    url = "https://gstreamer.freedesktop.org/src/gstreamer-vaapi/gstreamer-vaapi-${finalAttrs.version}.tar.xz";
+    hash = "sha256-8S+TAnPHodPg1/hblP+dE3nRYqzMky6Mo9OJk+0n/Kw=";
+  };
 
-  buildInputs =
-    [
-      gstreamer
-      gst-plugins-base
-      gst-plugins-bad
-      libva
-      wayland
-      wayland-protocols
-      libdrm
-      udev
-      xorg.libX11
-      xorg.libXext
-      xorg.libXv
-      xorg.libXrandr
-      xorg.libSM
-      xorg.libICE
-      nasm
-      libvpx
-    ]
-    ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [
-      libGL
-      libGLU
-    ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+    python3
+    bzip2
+    wayland-scanner
+  ]
+  ++ lib.optionals enableDocumentation [
+    hotdoc
+  ];
+
+  buildInputs = [
+    gstreamer
+    gst-plugins-base
+    gst-plugins-bad
+    libva
+    wayland
+    wayland-protocols
+    libdrm
+    udev
+    libx11
+    libxcb
+    libxext
+    libxv
+    libxrandr
+    libsm
+    libice
+    nasm
+    libvpx
+  ]
+  ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [
+    libGL
+    libGLU
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    apple-sdk_gstreamer
+  ];
 
   strictDeps = true;
 
@@ -89,11 +99,19 @@ stdenv.mkDerivation rec {
       scripts/extract-release-date-from-doap-file.py
   '';
 
-  meta = with lib; {
+  preFixup = ''
+    moveToOutput "lib/gstreamer-1.0/pkgconfig" "$dev"
+  '';
+
+  passthru = {
+    updateScript = directoryListingUpdater { };
+  };
+
+  meta = {
     description = "Set of VAAPI GStreamer Plug-ins";
     homepage = "https://gstreamer.freedesktop.org";
-    license = licenses.lgpl21Plus;
-    platforms = platforms.linux;
-    maintainers = [ ];
+    license = lib.licenses.lgpl21Plus;
+    platforms = lib.platforms.linux;
+    maintainers = with lib.maintainers; [ tmarkus ];
   };
-}
+})

@@ -7,6 +7,7 @@
   makeWrapper,
   ninja,
   perl,
+  perlPackages,
   brotli,
   openssl,
   libcap,
@@ -16,18 +17,20 @@
   withMruby ? true,
   bison,
   ruby,
+  withUring ? stdenv.hostPlatform.isLinux,
+  liburing,
   nixosTests,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "h2o";
-  version = "2.3.0.20250130";
+  version = "2.3.0-rolling-2026-06-10";
 
   src = fetchFromGitHub {
     owner = "h2o";
     repo = "h2o";
-    rev = "26b116e9536be8cf07036185e3edf9d721c9bac2";
-    sha256 = "sha256-WjsUUnSs3kXjAmh+V/lzL1QlxxXNCph99UsC29YAirQ=";
+    rev = "ed7899d1c234fd15d272a0ac6404ffbd89a3c772";
+    hash = "sha256-oT31ZuB0e8wkxovP/sbs52m396IG4mdh0tf8WBs8egA=";
   };
 
   outputs = [
@@ -37,17 +40,18 @@ stdenv.mkDerivation (finalAttrs: {
     "lib"
   ];
 
-  nativeBuildInputs =
-    [
-      pkg-config
-      cmake
-      makeWrapper
-      ninja
-    ]
-    ++ lib.optionals withMruby [
-      bison
-      ruby
-    ];
+  nativeBuildInputs = [
+    pkg-config
+    cmake
+    makeWrapper
+    ninja
+    perlPackages.JSON
+  ]
+  ++ lib.optionals withMruby [
+    bison
+    ruby
+  ]
+  ++ lib.optional withUring liburing;
 
   buildInputs = [
     brotli
@@ -70,21 +74,24 @@ stdenv.mkDerivation (finalAttrs: {
         --set "H2O_PERL" "${lib.getExe perl}" \
         --prefix "PATH" : "${lib.getBin openssl}/bin"
     done
+
+    wrapProgram "$out/bin/h2olog" \
+        --set "PERL5LIB" "$PERL5LIB"
   '';
 
   passthru = {
     tests = { inherit (nixosTests) h2o; };
   };
 
-  meta = with lib; {
+  meta = {
     description = "Optimized HTTP/1.x, HTTP/2, HTTP/3 server";
     homepage = "https://h2o.examp1e.net";
-    license = licenses.mit;
-    maintainers = with maintainers; [
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [
       toastal
       thoughtpolice
     ];
     mainProgram = "h2o";
-    platforms = platforms.linux;
+    platforms = lib.platforms.linux;
   };
 })

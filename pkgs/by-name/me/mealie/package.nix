@@ -1,54 +1,36 @@
 {
   lib,
-  stdenv,
+  pkgs,
   callPackage,
   fetchFromGitHub,
   makeWrapper,
   nixosTests,
-  python3Packages,
+  python3,
+  nltk-data,
   writeShellScript,
   nix-update-script,
 }:
 
 let
-  version = "2.7.1";
+  version = "3.16.0";
   src = fetchFromGitHub {
     owner = "mealie-recipes";
     repo = "mealie";
     tag = "v${version}";
-    hash = "sha256-nN8AuSzxHjIDKc8rGN+O2/vlzkH/A5LAr4aoAlOTLlk=";
+    hash = "sha256-DUwLCe221MQb6AEYNxNDWXoaEdf9q/dNklOXJncnnJ4=";
   };
 
   frontend = callPackage (import ./mealie-frontend.nix src version) { };
 
-  pythonpkgs = python3Packages;
-  python = pythonpkgs.python;
-
-  crfpp = stdenv.mkDerivation {
-    pname = "mealie-crfpp";
-    version = "unstable-2024-02-12";
-    src = fetchFromGitHub {
-      owner = "mealie-recipes";
-      repo = "crfpp";
-      rev = "c56dd9f29469c8a9f34456b8c0d6ae0476110516";
-      hash = "sha256-XNps3ZApU8m07bfPEnvip1w+3hLajdn9+L5+IpEaP0c=";
-    };
-
-    # Can remove once the `register` keyword is removed from source files
-    # Configure overwrites CXXFLAGS so patch it in the Makefile
-    postConfigure = lib.optionalString stdenv.cc.isClang ''
-      substituteInPlace Makefile \
-        --replace-fail "CXXFLAGS = " "CXXFLAGS = -std=c++14 "
-    '';
-  };
+  python = python3;
+  pythonpkgs = python.pkgs;
 in
-
 pythonpkgs.buildPythonApplication rec {
   pname = "mealie";
   inherit version src;
   pyproject = true;
 
-  build-system = with pythonpkgs; [ poetry-core ];
+  build-system = with pythonpkgs; [ setuptools ];
 
   nativeBuildInputs = [ makeWrapper ];
 
@@ -56,45 +38,61 @@ pythonpkgs.buildPythonApplication rec {
 
   pythonRelaxDeps = true;
 
-  dependencies = with pythonpkgs; [
-    aiofiles
-    alembic
-    aniso8601
-    appdirs
-    apprise
-    authlib
-    bcrypt
-    extruct
-    fastapi
-    gunicorn
-    html2text
-    httpx
-    itsdangerous
-    jinja2
-    lxml
-    openai
-    orjson
-    paho-mqtt
-    pillow
-    pillow-heif
-    psycopg2
-    pydantic-settings
-    pyhumps
-    pyjwt
-    python-dotenv
-    python-ldap
-    python-multipart
-    python-slugify
-    pyyaml
-    rapidfuzz
-    recipe-scrapers
-    sqlalchemy
-    tzdata
-    uvicorn
-  ];
+  dependencies =
+    with pythonpkgs;
+    [
+      aiofiles
+      alembic
+      aniso8601
+      appdirs
+      apprise
+      authlib
+      bcrypt
+      beautifulsoup4
+      extruct
+      fastapi
+      freezegun
+      html2text
+      httpx
+      httpx-curl-cffi
+      ingredient-parser-nlp
+      isodate
+      itsdangerous
+      jinja2
+      lxml
+      openai
+      orjson
+      paho-mqtt
+      pillow
+      pillow-heif
+      psycopg2 # pgsql optional-dependencies
+      pydantic
+      pydantic-settings
+      pyhumps
+      pyjwt
+      python-dateutil
+      python-dotenv
+      python-ldap
+      python-multipart
+      python-slugify
+      pyyaml
+      rapidfuzz
+      recipe-scrapers
+      requests
+      sqlalchemy
+      text-unidecode
+      typing-extensions
+      tzdata
+      uvicorn
+      yt-dlp
+    ]
+    ++ uvicorn.optional-dependencies.standard;
 
   postPatch = ''
     rm -rf dev # Do not need dev scripts & code
+
+    substituteInPlace pyproject.toml \
+     --replace-fail '"setuptools==82.0.1"' '"setuptools"'
 
     substituteInPlace mealie/__init__.py \
       --replace-fail '__version__ = ' '__version__ = "v${version}" #'
@@ -106,7 +104,6 @@ pythonpkgs.buildPythonApplication rec {
         ${lib.getExe pythonpkgs.gunicorn} "$@" -k uvicorn.workers.UvicornWorker mealie.app:app;
       '';
       init_db = writeShellScript "init-mealie-db" ''
-        ${python.interpreter} $OUT/${python.sitePackages}/mealie/scripts/install_model.py
         ${python.interpreter} $OUT/${python.sitePackages}/mealie/db/init_db.py
       '';
     in
@@ -116,25 +113,26 @@ pythonpkgs.buildPythonApplication rec {
 
       makeWrapper ${start_script} $out/bin/mealie \
         --set PYTHONPATH "$out/${python.sitePackages}:${pythonpkgs.makePythonPath dependencies}" \
-        --set LD_LIBRARY_PATH "${crfpp}/lib" \
-        --set STATIC_FILES "${frontend}" \
-        --set PATH "${lib.makeBinPath [ crfpp ]}"
+        --set STATIC_FILES "${frontend}"
 
       makeWrapper ${init_db} $out/libexec/init_db \
         --set PYTHONPATH "$out/${python.sitePackages}:${pythonpkgs.makePythonPath dependencies}" \
         --set OUT "$out"
     '';
 
-  nativeCheckInputs = with pythonpkgs; [ pytestCheckHook ];
+  nativeCheckInputs = with pythonpkgs; [
+    pytestCheckHook
+    pytest-asyncio
+  ];
 
-  disabledTestPaths = [
-    # KeyError: 'alembic_version'
-    "tests/unit_tests/services_tests/backup_v2_tests/test_backup_v2.py"
-    "tests/unit_tests/services_tests/backup_v2_tests/test_alchemy_exporter.py"
-    # sqlite3.OperationalError: no such table
-    "tests/unit_tests/services_tests/scheduler/tasks/test_create_timeline_events.py"
-    "tests/unit_tests/test_ingredient_parser.py"
-    "tests/unit_tests/test_security.py"
+  # Needed for tests
+  preCheck = ''
+    export NLTK_DATA=${nltk-data.averaged-perceptron-tagger-eng}
+  '';
+
+  disabledTests = [
+    # pydantic_core._pydantic_core.ValidationError: 1 validation error
+    "test_pg_connection_url_encode_password"
   ];
 
   passthru = {
@@ -144,7 +142,7 @@ pythonpkgs.buildPythonApplication rec {
     };
   };
 
-  meta = with lib; {
+  meta = {
     description = "Self hosted recipe manager and meal planner";
     longDescription = ''
       Mealie is a self hosted recipe manager and meal planner with a REST API and a reactive frontend
@@ -153,11 +151,12 @@ pythonpkgs.buildPythonApplication rec {
       the UI editor.
     '';
     homepage = "https://mealie.io";
-    changelog = "https://github.com/mealie-recipes/mealie/releases/tag/${src.rev}";
-    license = licenses.agpl3Only;
-    maintainers = with maintainers; [
+    changelog = "https://github.com/mealie-recipes/mealie/releases/tag/${src.tag}";
+    license = lib.licenses.agpl3Only;
+    maintainers = with lib.maintainers; [
       litchipi
       anoa
+      esch
     ];
     mainProgram = "mealie";
   };

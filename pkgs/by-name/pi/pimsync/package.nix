@@ -4,31 +4,30 @@
   fetchFromSourcehut,
   pkg-config,
   sqlite,
-  scdoc,
   installShellFiles,
   makeWrapper,
+  xandikos,
+  versionCheckHook,
   nix-update-script,
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "pimsync";
-  version = "0.4.1";
+  version = "0.5.9";
 
   src = fetchFromSourcehut {
     owner = "~whynothugo";
     repo = "pimsync";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-EHDGiyDGNr6cPj2N2cTV0f7I9vmM/WIZTsPR1f+HFIE=";
+    hash = "sha256-bNE0YY7bws8lEGoVg/sXuepBU1/oJPWBdn1wBGzF8s8=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-/6YjyKB/xOCTNZlKewddEaZ1ZN2PC5dQoP0A5If67MA=";
+  cargoHash = "sha256-w3o3qxe/EADeH6LDwBxm0kvdYuwEcuj8GcoVPtBqylA=";
 
-  PIMSYNC_VERSION = finalAttrs.version;
+  env.PIMSYNC_VERSION = finalAttrs.version;
 
   nativeBuildInputs = [
     pkg-config
-    scdoc
     makeWrapper
     installShellFiles
   ];
@@ -37,19 +36,29 @@ rustPlatform.buildRustPackage (finalAttrs: {
     sqlite
   ];
 
-  postBuild = ''
-    make man
-  '';
+  nativeCheckInputs = [
+    xandikos
+  ];
 
   postInstall = ''
-    installManPage target/pimsync.1 target/pimsync.conf.5 target/pimsync-migration.7
+    installManPage pimsync.1 pimsync.conf.5 pimsync-migration.7
+    installShellCompletion --zsh contrib/_pimsync
   '';
+
+  nativeInstallCheckInputs = [
+    versionCheckHook
+  ];
+  versionCheckProgramArg = "version";
+  doInstallCheck = true;
 
   passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Synchronise calendars and contacts";
     homepage = "https://git.sr.ht/~whynothugo/pimsync";
+    changelog = "https://pimsync.whynothugo.nl/changelog.html#v${
+      lib.replaceString "." "-" finalAttrs.version
+    }";
     license = lib.licenses.eupl12;
     platforms = lib.platforms.unix;
     maintainers = [ lib.maintainers.qxrein ];

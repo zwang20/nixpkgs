@@ -1,7 +1,7 @@
 {
   lib,
   stdenv,
-  callPackage,
+  buildVscode,
   fetchurl,
   nixosTests,
   commandLineArgs ? "",
@@ -19,6 +19,7 @@ let
       aarch64-linux = "linux-arm64";
       aarch64-darwin = "darwin-arm64";
       armv7l-linux = "linux-armhf";
+      loongarch64-linux = "linux-loong64";
     }
     .${system} or throwSystem;
 
@@ -26,22 +27,24 @@ let
 
   hash =
     {
-      x86_64-linux = "sha256-yK7ORsRAWMJ8yrWROS/jSKdyCyuJ2Y+gIdZlqto+/Xo=";
-      x86_64-darwin = "sha256-d+8vt5grnLwD/cIIGgb2ogpgZrZLZs+2bqfBrRzLfJw=";
-      aarch64-linux = "sha256-D93Eh5TPRgd9OxJ4pWsOryS5mOz2amQOHOnO+K99hAg=";
-      aarch64-darwin = "sha256-xKBWAb23jUi8pI7mZpHOP2eF3PZFh0MWj+BM+alKF18=";
-      armv7l-linux = "sha256-EqJNi/qMM08voA/Ltle3/28zbgIz/Ae42IE5oXLxcKU=";
+      x86_64-linux = "sha256-LJsGc11MH6zlcJNfSWjTWPn2Jp9dkjeBPQuCXH1woUM=";
+      x86_64-darwin = "sha256-bC7AfH2eKmmsWIOHifNGKD/kVQCYyuMfU3SUil0DXkM=";
+      aarch64-linux = "sha256-mT5dvw8GOZ0GnZaKRS/TAzQDEEYDOgcj6w6lNLy5kQ0=";
+      aarch64-darwin = "sha256-c8K17XKpRG1ji2mUfoyg2+cRF+qc1KVMYVkaQoUIz7Y=";
+      armv7l-linux = "sha256-91ZHhEUDVoDiRBLwMHVLhzKmb9gWcPBUsVRZVLhCA4M=";
+      loongarch64-linux = "sha256-7iUdsIyJkIi40Xn+/PWdCVgahQxbZtiMw0QLMisN+sg=";
     }
     .${system} or throwSystem;
 
   sourceRoot = lib.optionalString (!stdenv.hostPlatform.isDarwin) ".";
 in
-callPackage ./generic.nix rec {
+buildVscode rec {
   inherit sourceRoot commandLineArgs useVSCodeRipgrep;
 
   # Please backport all compatible updates to the stable release.
   # This is important for the extension ecosystem.
-  version = "1.99.02289";
+  version = "1.121.03429";
+  vscodeVersion = "1.121.0";
   pname = "vscodium";
 
   executableName = "codium";
@@ -53,7 +56,7 @@ callPackage ./generic.nix rec {
     inherit hash;
   };
 
-  tests = nixosTests.vscodium;
+  tests = nixosTests.vscodium.xorg;
 
   updateScript = ./update-vscodium.sh;
 
@@ -76,12 +79,11 @@ callPackage ./generic.nix rec {
     '';
     homepage = "https://github.com/VSCodium/vscodium";
     downloadPage = "https://github.com/VSCodium/vscodium/releases";
+    changelog = "https://github.com/VSCodium/vscodium/releases/tag/${version}";
     license = lib.licenses.mit;
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     maintainers = with lib.maintainers; [
-      synthetica
       bobby285271
-      ludovicopiero
     ];
     mainProgram = "codium";
     platforms = [
@@ -90,6 +92,7 @@ callPackage ./generic.nix rec {
       "aarch64-linux"
       "aarch64-darwin"
       "armv7l-linux"
+      "loongarch64-linux"
     ];
     # requires libc.so.6 and other glibc specifics
     broken = stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isGnu;

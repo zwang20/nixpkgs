@@ -5,26 +5,26 @@
   stdenv,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "quill-log";
-  version = "9.0.0";
+  version = "12.0.0";
 
   src = fetchFromGitHub {
     owner = "odygrd";
     repo = "quill";
-    rev = "v${version}";
-    hash = "sha256-WkJOB06yH3B3L2aqglh1jc38e1fDbxaqFEEh1AvBUcw=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-LtajNT+AN6wOEj3BLU3RctXLSliIvpV/73FJeerUQFk=";
   };
 
   nativeBuildInputs = [ cmake ];
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/odygrd/quill";
     changelog = "https://github.com/odygrd/quill/blob/master/CHANGELOG.md";
     downloadPage = "https://github.com/odygrd/quill";
     description = "Asynchronous Low Latency C++17 Logging Library";
-    platforms = platforms.all;
-    license = licenses.mit;
-    maintainers = [ maintainers.odygrd ];
+    platforms = lib.platforms.all;
+    license = lib.licenses.mit;
+    maintainers = [ lib.maintainers.odygrd ];
   };
-}
+})

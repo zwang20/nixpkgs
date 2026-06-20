@@ -22,21 +22,21 @@
 
 buildPythonPackage rec {
   pname = "oslo-db";
-  version = "17.1.0";
+  version = "18.0.0";
   pyproject = true;
 
   src = fetchPypi {
-    pname = "oslo.db";
+    pname = "oslo_db";
     inherit version;
-    hash = "sha256-icREZ/qY8yRTWtqohONRdudB3kogJcvfO6zQFFdNoH8=";
+    hash = "sha256-lL/zJBrTie9YZsFpGd4AWuDlud8YFO65TUAnxXUnCSM=";
   };
 
-  nativeBuildInputs = [
+  build-system = [
     pbr
     setuptools
   ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     alembic
     debtcollector
     oslo-config
@@ -57,15 +57,17 @@ buildPythonPackage rec {
   ];
 
   checkPhase = ''
+    runHook preCheck
     stestr run -e <(echo "oslo_db.tests.sqlalchemy.test_utils.TestModelQuery.test_project_filter_allow_none")
+    runHook postCheck
   '';
 
   pythonImportsCheck = [ "oslo_db" ];
 
-  meta = with lib; {
+  meta = {
     description = "Oslo Database library";
     homepage = "https://github.com/openstack/oslo.db";
-    license = licenses.asl20;
-    maintainers = teams.openstack.members;
+    license = lib.licenses.asl20;
+    teams = [ lib.teams.openstack ];
   };
 }

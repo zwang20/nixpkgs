@@ -4,23 +4,17 @@
   fetchFromGitHub,
 }:
 
-python3.pkgs.buildPythonApplication rec {
+python3.pkgs.buildPythonApplication (finalAttrs: {
   pname = "penelope";
-  version = "0.12.4-unstable-2024-10-21";
+  version = "0.20.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "brightio";
     repo = "penelope";
-    rev = "366534d192ed279cc822da565408ea7ff48d6a60";
-    hash = "sha256-pBEYgLyicG34HsIBSt8P9xGJEaEz9ZWyxokNyuO6mdM=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-mqdNPMKTwReIk2zUU+oZ21QOH+l3L12/TADB6YbcOzk=";
   };
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace-fail "[project.scripts]" "" \
-      --replace-fail 'penelope = "penelope:main"' ""
-  '';
 
   build-system = with python3.pkgs; [ setuptools ];
 
@@ -30,10 +24,10 @@ python3.pkgs.buildPythonApplication rec {
   meta = {
     description = "Penelope Shell Handler";
     homepage = "https://github.com/brightio/penelope";
-    changelog = "https://github.com/brightio/penelope/releases/tag/v${version}";
-    license = lib.licenses.gpl3Only;
+    changelog = "https://github.com/brightio/penelope/releases/tag/${finalAttrs.src.tag}";
+    license = lib.licenses.gpl3Plus;
     maintainers = with lib.maintainers; [ fab ];
-    mainProgram = "penelope.py";
+    mainProgram = "penelope";
     platforms = lib.platforms.all;
   };
-}
+})

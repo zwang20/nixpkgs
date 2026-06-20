@@ -2,7 +2,6 @@
   lib,
   buildPythonPackage,
   fetchPypi,
-  pythonOlder,
   replaceVars,
   colorama,
   contourpy,
@@ -21,11 +20,11 @@
   channels,
   click,
   colorcet,
-  coverage,
   firefox,
   geckodriver,
   isort,
   json5,
+  narwhals,
   nbconvert,
   networkx,
   psutil,
@@ -45,14 +44,12 @@
 buildPythonPackage rec {
   pname = "bokeh";
   # update together with panel which is not straightforward
-  version = "3.6.3";
+  version = "3.8.2";
   pyproject = true;
-
-  disabled = pythonOlder "3.9";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-m4HWqepi51oEoanZ+TGUIBaJC+7Jq10SmipEMs9ZXAo=";
+    hash = "sha256-jn3KzCHVOQVYG1QyitJwWVT3LymX+Z/DMsHejaU6o8w=";
   };
 
   patches = [
@@ -80,7 +77,6 @@ buildPythonPackage rec {
     channels
     click
     colorcet
-    coverage
     firefox
     geckodriver
     isort
@@ -111,6 +107,7 @@ buildPythonPackage rec {
     pyyaml
     tornado
     xyzservices
+    narwhals
   ];
 
   doCheck = false; # need more work
@@ -122,6 +119,6 @@ buildPythonPackage rec {
     mainProgram = "bokeh";
     homepage = "https://github.com/bokeh/bokeh";
     license = lib.licenses.bsd3;
-    maintainers = with lib.maintainers; [ orivej ];
+    maintainers = [ ];
   };
 }

@@ -2,7 +2,8 @@
   lib,
   stdenv,
   glib,
-  xorg,
+  gobject-introspection,
+  lndir,
   wrapGAppsHook3,
   budgie-desktop,
   plugins ? [ ],
@@ -16,10 +17,9 @@ stdenv.mkDerivation {
 
   paths = [ budgie-desktop ] ++ plugins;
 
-  passAsFile = [ "paths" ];
-
   nativeBuildInputs = [
     glib
+    gobject-introspection.setupHook
     wrapGAppsHook3
   ];
 
@@ -34,8 +34,8 @@ stdenv.mkDerivation {
 
   installPhase = ''
     mkdir -p $out
-    for i in $(cat $pathsPath); do
-      ${xorg.lndir}/bin/lndir -silent $i $out
+    for i in "''${paths[@]}"; do
+      ${lndir}/bin/lndir -silent $i $out
     done
   '';
 
@@ -48,13 +48,15 @@ stdenv.mkDerivation {
     )
   '';
 
+  __structuredAttrs = true;
+
   meta = {
     inherit (budgie-desktop.meta)
       description
       homepage
       changelog
       license
-      maintainers
+      teams
       platforms
       ;
   };

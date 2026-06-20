@@ -8,16 +8,16 @@
 
 buildGoModule (finalAttrs: {
   pname = "opnborg";
-  version = "0.1.68";
+  version = "0.1.81";
 
   src = fetchFromGitHub {
     owner = "paepckehh";
     repo = "opnborg";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-fES3YlJu8Zy1CLNEkzWW0KAhy3dZj1JXAT8y9tRjyEA=";
+    hash = "sha256-lPPOGvWoeMkA5B488saJWFU7yG/RcjJ+e1p1O/ssW00=";
   };
 
-  vendorHash = "sha256-u1LZvLAKYd1TQlZkYxgztOm1g94N4orMe6Y1Ab1to5Y=";
+  vendorHash = "sha256-B1fZsgb2h3Po4Zy9jUD6OOFAGr+Yw6vNBK+IurjzMSo=";
 
   ldflags = [
     "-s"
@@ -30,7 +30,6 @@ buildGoModule (finalAttrs: {
 
   doInstallCheck = true;
   versionCheckProgram = "${placeholder "out"}/bin/opnborg";
-  versionCheckProgramArg = "--version";
 
   meta = {
     changelog = "https://github.com/paepckehh/opnborg/releases/tag/v${finalAttrs.version}";

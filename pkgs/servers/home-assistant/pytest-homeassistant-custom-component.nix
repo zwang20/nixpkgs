@@ -8,6 +8,7 @@
   bcrypt,
   freezegun,
   homeassistant,
+  paho-mqtt,
   pytest-asyncio,
   pytest-socket,
   requests-mock,
@@ -18,16 +19,16 @@
 
 buildPythonPackage rec {
   pname = "pytest-homeassistant-custom-component";
-  version = "0.13.223";
+  version = "0.13.340";
   pyproject = true;
 
-  disabled = pythonOlder "3.12";
+  disabled = pythonOlder "3.13";
 
   src = fetchFromGitHub {
     owner = "MatthewFlamm";
     repo = "pytest-homeassistant-custom-component";
-    rev = "refs/tags/${version}";
-    hash = "sha256-mt8byu88r76cVkZlu8LSiInm/jwboauo6YblY2aTulA=";
+    tag = version;
+    hash = "sha256-08hshNdSbOJSu/uJVBeZSxksYaCSZo7KjwwyaooqNGo=";
   };
 
   build-system = [ setuptools ];
@@ -39,6 +40,7 @@ buildPythonPackage rec {
     bcrypt
     freezegun
     homeassistant
+    paho-mqtt
     pytest-asyncio
     pytest-socket
     requests-mock
@@ -51,7 +53,7 @@ buildPythonPackage rec {
   nativeCheckInputs = [ pytestCheckHook ];
 
   meta = {
-    changelog = "https://github.com/MatthewFlamm/pytest-homeassistant-custom-component/blob/${src.rev}/CHANGELOG.md";
+    changelog = "https://github.com/MatthewFlamm/pytest-homeassistant-custom-component/blob/${src.tag}/CHANGELOG.md";
     description = "Package to automatically extract testing plugins from Home Assistant for custom component testing";
     homepage = "https://github.com/MatthewFlamm/pytest-homeassistant-custom-component";
     license = lib.licenses.mit;

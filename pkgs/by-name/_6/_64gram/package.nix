@@ -1,6 +1,5 @@
 {
   lib,
-  stdenv,
   fetchFromGitHub,
   telegram-desktop,
   withWebkit ? true,
@@ -11,19 +10,15 @@ telegram-desktop.override {
   inherit withWebkit;
   unwrapped = telegram-desktop.unwrapped.overrideAttrs (old: rec {
     pname = "64gram-unwrapped";
-    version = "1.1.58";
+    version = "1.2.2";
 
     src = fetchFromGitHub {
       owner = "TDesktop-x64";
       repo = "tdesktop";
       tag = "v${version}";
-      hash = "sha256-RHybrvm5p8BUt5StT/NuR76f2y1CCICirTMjdeRLtkY=";
+      hash = "sha256-qT7GQCqIaEZmbtFeoWMChUX6J8uqs/+UZYi0YoBIYDY=";
       fetchSubmodules = true;
     };
-
-    cmakeFlags = (old.cmakeFlags or [ ]) ++ [
-      (lib.cmakeBool "DESKTOP_APP_DISABLE_AUTOUPDATE" true)
-    ];
 
     meta = {
       description = "Unofficial Telegram Desktop providing Windows 64bit build and extra features";
@@ -32,7 +27,7 @@ telegram-desktop.override {
       homepage = "https://github.com/TDesktop-x64/tdesktop";
       changelog = "https://github.com/TDesktop-x64/tdesktop/releases/tag/v${version}";
       maintainers = with lib.maintainers; [ clot27 ];
-      mainProgram = if stdenv.hostPlatform.isLinux then "telegram-desktop" else "Telegram";
+      mainProgram = "Telegram";
     };
   });
 }

@@ -16,20 +16,15 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "gpupad";
-  version = "2.4.0";
+  version = "3.4.1";
 
   src = fetchFromGitHub {
     owner = "houmain";
     repo = "gpupad";
     tag = finalAttrs.version;
-    hash = "sha256-yCoLvocfqYOwbsGn2r3+2iThDZCkRAUrNI71fIH7XXU=";
+    hash = "sha256-8kDJRZPDzZA6ofaXWQ55VZfuXdOHvTCssoe64qgNrbU=";
     fetchSubmodules = true;
   };
-
-  patches = [
-    # the current version of glslang no longer separates its libs into sublibs
-    ./glslang-use-combined-lib.patch
-  ];
 
   strictDeps = true;
 

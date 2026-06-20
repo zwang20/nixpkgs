@@ -14,7 +14,7 @@
 }:
 
 stdenv.mkDerivation (finalAttrs: {
-  version = "1.36";
+  version = "1.38.1";
   pname = "fakeroot";
 
   src = fetchFromGitLab {
@@ -22,26 +22,19 @@ stdenv.mkDerivation (finalAttrs: {
     repo = "fakeroot";
     rev = "upstream/${finalAttrs.version}";
     domain = "salsa.debian.org";
-    hash = "sha256-QNScrkX2Vffsj/I5EJO8qs5AHQ9b5s6nHLHQKUdRzLE=";
+    hash = "sha256-sAzXeONjDT753lbu7amQY6yXpaTNCa4wFOzB01SRbCs=";
   };
 
   patches = lib.optionals stdenv.hostPlatform.isLinux [
+    ./add-missing-wrapawk.patch
     ./einval.patch
-
-    # patches needed for musl libc, borrowed from alpine packaging.
-    # it is applied regardless of the environment to prevent patchrot
-    (fetchpatch {
-      name = "fakeroot-no64.patch";
-      url = "https://git.alpinelinux.org/aports/plain/main/fakeroot/fakeroot-no64.patch?id=f68c541324ad07cc5b7f5228501b5f2ce4b36158";
-      sha256 = "sha256-NCDaB4nK71gvz8iQxlfaQTazsG0SBUQ/RAnN+FqwKkY=";
-    })
   ];
 
   nativeBuildInputs = [
     autoreconfHook
     po4a
   ];
-  buildInputs = lib.optional (!stdenv.hostPlatform.isDarwin) libcap;
+  buildInputs = lib.optional stdenv.hostPlatform.isLinux libcap;
 
   postUnpack = ''
     sed -i \

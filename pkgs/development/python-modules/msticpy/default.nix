@@ -39,7 +39,6 @@
   pydantic,
   pygments,
   pyjwt,
-  pythonOlder,
   pyyaml,
   setuptools,
   tldextract,
@@ -48,21 +47,22 @@
   urllib3,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "msticpy";
-  version = "2.16.1";
+  version = "3.0.0";
   pyproject = true;
-
-  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "microsoft";
     repo = "msticpy";
-    tag = "v${version}";
-    hash = "sha256-bvqeH2JCUCrObQBgoD6ie2IEfH0nQAuiZoFX81+T7Gs=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-aX5Nd0tNuweBp2SqGwe4/Z4LcdJaX3p5LLNQAOdGVGo=";
   };
 
-  pythonRelaxDeps = [ "bokeh" ];
+  pythonRelaxDeps = [
+    "azure-kusto-data"
+    "bokeh"
+  ];
 
   build-system = [ setuptools ];
 
@@ -117,8 +117,8 @@ buildPythonPackage rec {
   meta = {
     description = "Microsoft Threat Intelligence Security Tools";
     homepage = "https://github.com/microsoft/msticpy";
-    changelog = "https://github.com/microsoft/msticpy/releases/tag/v${version}";
+    changelog = "https://github.com/microsoft/msticpy/releases/tag/${finalAttrs.src.tag}";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ fab ];
   };
-}
+})

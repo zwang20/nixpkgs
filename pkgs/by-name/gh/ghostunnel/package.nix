@@ -1,45 +1,58 @@
 {
-  stdenv,
   buildGoModule,
   fetchFromGitHub,
   lib,
   nixosTests,
+  ghostunnel,
 }:
 
 buildGoModule rec {
   pname = "ghostunnel";
-  version = "1.8.4";
+  version = "1.10.0";
 
   src = fetchFromGitHub {
     owner = "ghostunnel";
     repo = "ghostunnel";
     rev = "v${version}";
-    hash = "sha256-NnRm1HEdfK6WI5ntilLSwdR2B5czG5CIcMFzl2TzEds=";
+    hash = "sha256-BntQCauAgnaiNn31nrVEsHFvQv7zK6D0z/rInbCVTr0=";
   };
 
-  vendorHash = null;
+  patches = [
+    # upstream left an untidied go.mod/go.sum in v1.10.0
+    ./pkg-errors.patch
+  ];
+
+  vendorHash = "sha256-pd7fTP0BAgpd4mD8ZG8Ak9fFF2sC0JGCDbPG8tAnWvw=";
 
   deleteVendor = true;
 
-  # The certstore directory isn't recognized as a subpackage, but is when moved
-  # into the vendor directory.
-  postUnpack = ''
-    mkdir -p $sourceRoot/vendor/ghostunnel
-    mv $sourceRoot/certstore $sourceRoot/vendor/ghostunnel/
-  '';
+  # These tests don't exist for Linux, and on Darwin they attempt to use the macOS Keychain
+  # which doesn't work from a nix build. Presumably other platform implementations of the
+  # certstore would have similar issues, so it probably makes sense to skip them in
+  # general wherever they are available.
+  checkFlags = [ "-skip=^Test(ImportDelete|Signer|Certificate)(RSA|ECDSA|EC)$" ];
 
   passthru.tests = {
     nixos = nixosTests.ghostunnel;
     podman = nixosTests.podman-tls-ghostunnel;
   };
 
-  meta = with lib; {
-    broken = stdenv.hostPlatform.isDarwin;
+  passthru.services.default = {
+    imports = [
+      (lib.modules.importApply ./service.nix { })
+    ];
+    ghostunnel.package = ghostunnel; # FIXME: finalAttrs.finalPackage
+  };
+
+  meta = {
     description = "TLS proxy with mutual authentication support for securing non-TLS backend applications";
     homepage = "https://github.com/ghostunnel/ghostunnel#readme";
     changelog = "https://github.com/ghostunnel/ghostunnel/releases/tag/v${version}";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ roberth ];
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [
+      roberth
+      mjm
+    ];
     mainProgram = "ghostunnel";
   };
 }

@@ -8,13 +8,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "open62541pp";
-  version = "0.18.0";
+  version = "0.21.1";
 
   src = fetchFromGitHub {
     owner = "open62541pp";
     repo = "open62541pp";
-    rev = "v${finalAttrs.version}";
-    hash = "sha256-xFiL+biDETGNwWzbTcfAi3GF1Dj9vvXEj2wJ+GoFz1Q=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-BYRPHkRG2b/k1vVyOIRK1UH7MRxEpui5YTPfdO3Wx+Y=";
   };
 
   cmakeFlags = [
@@ -32,7 +32,7 @@ stdenv.mkDerivation (finalAttrs: {
   meta = {
     description = "C++ wrapper of the open62541 OPC UA library";
     homepage = "https://open62541pp.github.io/open62541pp";
-    changelog = "https://github.com/open62541pp/open62541pp/releases/tag/${finalAttrs.src.rev}";
+    changelog = "https://github.com/open62541pp/open62541pp/releases/tag/${finalAttrs.src.tag}";
     license = lib.licenses.mpl20;
     maintainers = with lib.maintainers; [ sikmir ];
     platforms = lib.platforms.unix;

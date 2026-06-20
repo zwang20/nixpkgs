@@ -13,14 +13,17 @@
   testers,
   nixosTests,
 }:
-python3Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   pname = "borgmatic";
-  version = "1.9.14";
-  format = "pyproject";
+  version = "2.1.5";
+  pyproject = true;
+
+  strictDeps = true;
+  __structuredAttrs = true;
 
   src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-w503lwXlKWlTsguzECUGmsbhvdJzTF4XK+Ib2KuD2DE=";
+    inherit (finalAttrs) pname version;
+    hash = "sha256-T0+E6opyfr7zxfP44OlNuhqsdQyi7OdIXiE5r310LaU=";
   };
 
   passthru.updateScript = nix-update-script { };
@@ -31,18 +34,24 @@ python3Packages.buildPythonApplication rec {
       flexmock
       pytestCheckHook
       pytest-cov-stub
+      pytest-timeout
     ]
-    ++ optional-dependencies.apprise;
+    ++ finalAttrs.passthru.optional-dependencies.apprise;
 
   # - test_borgmatic_version_matches_news_version
-  # The file NEWS not available on the pypi source, and this test is useless
+  #   NEWS file not available on the pypi source
+  # - test_log_outputs_includes_error_output_in_exception
+  #   TOCTOU race in log_outputs(): process.poll() returns None in
+  #   raise_for_process_errors but non-None in the while-loop exit check,
+  #   so the error is never raised. Timing-dependent; fails on x86_64-darwin.
   disabledTests = [
     "test_borgmatic_version_matches_news_version"
+    "test_log_outputs_includes_error_output_in_exception"
   ];
 
   nativeBuildInputs = [ installShellFiles ];
 
-  propagatedBuildInputs = with python3Packages; [
+  dependencies = with python3Packages; [
     borgbackup
     colorama
     jsonschema
@@ -57,9 +66,10 @@ python3Packages.buildPythonApplication rec {
   };
 
   postInstall =
-    ''
+    lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
       installShellCompletion --cmd borgmatic \
-        --bash <($out/bin/borgmatic --bash-completion)
+        --bash <($out/bin/borgmatic --bash-completion) \
+        --fish <($out/bin/borgmatic --fish-completion)
     ''
     + lib.optionalString enableSystemd ''
       mkdir -p $out/lib/systemd/system
@@ -67,10 +77,10 @@ python3Packages.buildPythonApplication rec {
       # there is another "sleep", so choose the one with the space after it
       # due to https://github.com/borgmatic-collective/borgmatic/commit/2e9f70d49647d47fb4ca05f428c592b0e4319544
       substitute sample/systemd/borgmatic.service \
-                 $out/lib/systemd/system/borgmatic.service \
-                 --replace /root/.local/bin/borgmatic $out/bin/borgmatic \
-                 --replace systemd-inhibit ${systemd}/bin/systemd-inhibit \
-                 --replace "sleep " "${coreutils}/bin/sleep "
+        $out/lib/systemd/system/borgmatic.service \
+        --replace-fail /root/.local/bin/borgmatic $out/bin/borgmatic \
+        --replace-fail systemd-inhibit ${systemd}/bin/systemd-inhibit \
+        --replace-fail "sleep " "${coreutils}/bin/sleep "
     '';
 
   passthru.tests = {
@@ -91,4 +101,4 @@ python3Packages.buildPythonApplication rec {
       x123
     ];
   };
-}
+})

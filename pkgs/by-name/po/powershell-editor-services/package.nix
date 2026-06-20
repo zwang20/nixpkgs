@@ -7,11 +7,11 @@
 }:
 stdenvNoCC.mkDerivation rec {
   pname = "powershell-editor-services";
-  version = "4.3.0";
+  version = "4.6.0";
 
   src = fetchzip {
     url = "https://github.com/PowerShell/PowerShellEditorServices/releases/download/v${version}/PowerShellEditorServices.zip";
-    hash = "sha256-YiXxztfsYujJK6+56Lwi4QdRIZb7NH+dAUJTOYk8pGI=";
+    hash = "sha256-3h5LQj63fAZ0RZJykiKOKLgJWPJXCTVL+4k7FKrmnK0=";
     stripRoot = false;
   };
 
@@ -25,14 +25,14 @@ stdenvNoCC.mkDerivation rec {
     chmod +x $out/bin/powershell-editor-services
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Common platform for PowerShell development support in any editor or application";
     homepage = "https://github.com/PowerShell/PowerShellEditorServices";
     changelog = "https://github.com/PowerShell/PowerShellEditorServices/releases/tag/v${version}";
-    platforms = platforms.unix;
-    license = licenses.mit;
-    maintainers = with maintainers; [ sharpchen ];
+    platforms = lib.platforms.unix;
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ sharpchen ];
     mainProgram = "powershell-editor-services";
-    sourceProvenance = with sourceTypes; [ binaryBytecode ];
+    sourceProvenance = with lib.sourceTypes; [ binaryBytecode ];
   };
 }

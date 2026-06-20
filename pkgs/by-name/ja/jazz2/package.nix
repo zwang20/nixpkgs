@@ -1,33 +1,38 @@
 {
-  lib,
-  stdenv,
-  fetchFromGitHub,
   cmake,
+  curl,
+  fetchFromGitHub,
+  gitUpdater,
   jazz2-content,
+  lib,
+  libGL,
   libopenmpt,
   libvorbis,
   openal,
   SDL2,
-  zlib,
+  stdenv,
   versionCheckHook,
-  gitUpdater,
+  zlib,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "jazz2";
-  version = "3.2.0";
+  version = "3.6.0";
 
   src = fetchFromGitHub {
     owner = "deathkiller";
     repo = "jazz2-native";
     tag = finalAttrs.version;
-    hash = "sha256-9Fsm4hiNIEi5OVZLOLccSUkFmHnQ+ZUoBor+DZ9edVo=";
+    hash = "sha256-Ijm5OyQT5JceF9hDLX4z9BZfTY/XYtSdmpMfjgqzCe4=";
   };
 
   patches = [ ./nocontent.patch ];
 
+  strictDeps = true;
   nativeBuildInputs = [ cmake ];
   buildInputs = [
+    curl
+    libGL
     libopenmpt
     libvorbis
     openal
@@ -36,15 +41,14 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   cmakeFlags = [
-    (lib.cmakeFeature "LIBOPENMPT_INCLUDE_DIR" "${lib.getDev libopenmpt}/include/libopenmpt")
     (lib.cmakeBool "NCINE_DOWNLOAD_DEPENDENCIES" false)
+    (lib.cmakeFeature "LIBOPENMPT_INCLUDE_DIR" "${lib.getDev libopenmpt}/include/libopenmpt")
     (lib.cmakeFeature "NCINE_OVERRIDE_CONTENT_PATH" "${jazz2-content}")
   ];
 
   nativeInstallCheckInputs = [
     versionCheckHook
   ];
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   passthru = {

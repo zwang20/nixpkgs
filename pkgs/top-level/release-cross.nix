@@ -25,6 +25,7 @@
   # Attributes passed to nixpkgs. Don't build packages marked as unfree.
   nixpkgsArgs ? {
     config = {
+      allowAliases = false;
       allowUnfree = false;
       inHydra = true;
     };
@@ -46,7 +47,6 @@ let
     linux
     mapTestOnCross
     pkgsForCross
-    unix
     ;
 
   inherit (release-lib.lib)
@@ -71,18 +71,19 @@ let
   embedded = {
     buildPackages.binutils = nativePlatforms;
     buildPackages.gcc = nativePlatforms;
-    libcCross = nativePlatforms;
+    libc = nativePlatforms;
   };
 
   common = {
     buildPackages.binutils = nativePlatforms;
     gmp = nativePlatforms;
-    libcCross = nativePlatforms;
+    libc = nativePlatforms;
     nix = nativePlatforms;
     nixVersions.git = nativePlatforms;
     mesa = nativePlatforms;
     rustc = nativePlatforms;
     cargo = nativePlatforms;
+    fd = nativePlatforms;
   };
 
   gnuCommon = recursiveUpdate common {
@@ -108,7 +109,12 @@ let
     libffi = nativePlatforms;
     libtool = nativePlatforms;
     libunistring = nativePlatforms;
-    windows.mingw_w64_pthreads = nativePlatforms;
+    windows.pthreads = nativePlatforms;
+  };
+
+  cygwinCommon = {
+    hello = nativePlatforms;
+    nixVersions.git = nativePlatforms;
   };
 
   wasiCommon = {
@@ -191,19 +197,22 @@ in
 
   crossIphone32 = mapTestOnCross systems.examples.iphone32 darwinCommon;
 
-  # Test some cross builds to the Sheevaplug
-  crossSheevaplugLinux = mapTestOnCross systems.examples.sheevaplug (
+  # Test some cross builds to ARMv5
+  armv5tel = mapTestOnCross systems.examples.armv5tel-multiplatform (
     linuxCommon
     // {
       ubootSheevaplug = nativePlatforms;
     }
   );
 
-  # Test some cross builds on 32 bit mingw-w64
-  crossMingw32 = mapTestOnCross systems.examples.mingw32 windowsCommon;
+  # Test some cross builds on various mingw-w64 platforms
+  crossMingw32 = mapTestOnCross systems.examples.mingw-msvcrt-i686 windowsCommon;
+  cross-mingw-msvcrt-x86_64 = mapTestOnCross systems.examples.mingw-msvcrt-x86_64 windowsCommon;
+  cross-mingw-ucrt-x86_64 = mapTestOnCross systems.examples.mingw-ucrt-x86_64 windowsCommon;
+  cross-mingw-ucrt-x86_64-llvm = mapTestOnCross systems.examples.mingw-ucrt-x86_64-llvm windowsCommon;
+  cross-mingw-ucrt-aarch64 = mapTestOnCross systems.examples.mingw-ucrt-aarch64 windowsCommon;
 
-  # Test some cross builds on 64 bit mingw-w64
-  crossMingwW64 = mapTestOnCross systems.examples.mingwW64 windowsCommon;
+  x86_64-cygwin = mapTestOnCross systems.examples.x86_64-cygwin cygwinCommon;
 
   # Linux on mipsel
   fuloongminipc = mapTestOnCross systems.examples.fuloongminipc linuxCommon;
@@ -211,7 +220,6 @@ in
 
   # Javascript
   ghcjs = mapTestOnCross systems.examples.ghcjs {
-    haskell.packages.ghcjs.hello = nativePlatforms;
     haskell.packages.native-bignum.ghcHEAD.hello = nativePlatforms;
     haskellPackages.hello = nativePlatforms;
   };
@@ -227,8 +235,6 @@ in
   # Linux on armv7l-hf
   armv7l-hf = mapTestOnCross systems.examples.armv7l-hf-multiplatform linuxCommon;
 
-  pogoplug4 = mapTestOnCross systems.examples.pogoplug4 linuxCommon;
-
   # Linux on aarch64
   aarch64 = mapTestOnCross systems.examples.aarch64-multiplatform linuxCommon;
   aarch64-musl = mapTestOnCross systems.examples.aarch64-multiplatform-musl linuxCommon;
@@ -241,6 +247,7 @@ in
   loongarch64-linux = mapTestOnCross systems.examples.loongarch64-linux linuxCommon;
 
   m68k = mapTestOnCross systems.examples.m68k linuxCommon;
+  arc = mapTestOnCross systems.examples.arc linuxCommon;
   s390x = mapTestOnCross systems.examples.s390x linuxCommon;
 
   # (Cross-compiled) Linux on x86
@@ -249,6 +256,10 @@ in
   i686-musl = mapTestOnCross systems.examples.musl32 linuxCommon;
   i686-gnu = mapTestOnCross systems.examples.gnu32 linuxCommon;
 
+  # Linux on POWER
+  ppc64-elfv1 = mapTestOnCross systems.examples.ppc64-elfv1 linuxCommon;
+  ppc64-elfv2 = mapTestOnCross systems.examples.ppc64-elfv2 linuxCommon;
+  ppc64-musl = mapTestOnCross systems.examples.ppc64-musl linuxCommon;
   ppc64le = mapTestOnCross systems.examples.powernv linuxCommon;
   ppc64le-musl = mapTestOnCross systems.examples.musl-power linuxCommon;
 
@@ -279,20 +290,20 @@ in
   x86_64-netbsd = mapTestOnCross systems.examples.x86_64-netbsd common;
   x86_64-openbsd = mapTestOnCross systems.examples.x86_64-openbsd common;
 
-  # we test `embedded` instead of `linuxCommon` because very few packages
-  # successfully cross-compile to Redox so far
-  x86_64-redox = mapTestOnCross systems.examples.x86_64-unknown-redox embedded;
-
   # Cross-built bootstrap tools for every supported platform
   bootstrapTools =
     let
       linuxTools = import ../stdenv/linux/make-bootstrap-tools-cross.nix { system = "x86_64-linux"; };
       freebsdTools = import ../stdenv/freebsd/make-bootstrap-tools-cross.nix { system = "x86_64-linux"; };
+      cygwinTools = import ../stdenv/cygwin/make-bootstrap-tools-cross.nix { system = "x86_64-linux"; };
       linuxMeta = {
-        maintainers = [ maintainers.dezgeg ];
+        maintainers = [ ];
       };
       freebsdMeta = {
         maintainers = [ maintainers.rhelmot ];
+      };
+      cygwinMeta = {
+        maintainers = [ maintainers.corngood ];
       };
       mkBootstrapToolsJob =
         meta: drv:
@@ -319,8 +330,11 @@ in
       freebsd = mapAttrsRecursiveCond (as: !isDerivation as) (
         name: mkBootstrapToolsJob freebsdMeta
       ) freebsdTools;
+      cygwin = mapAttrsRecursiveCond (as: !isDerivation as) (
+        name: mkBootstrapToolsJob cygwinMeta
+      ) cygwinTools;
     in
-    linux // freebsd;
+    linux // freebsd // cygwin;
 
   # Cross-built nixStatic for platforms for enabled-but-unsupported platforms
   mips64el-nixCrossStatic = mapTestOnCross systems.examples.mips64el-linux-gnuabi64 nixCrossStatic;

@@ -4,26 +4,26 @@
   fetchFromGitHub,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "gore";
-  version = "0.6.0";
+  version = "0.6.2";
 
   src = fetchFromGitHub {
     owner = "motemen";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-7mhfegSSRE9FnKz+tWYMEtEKc+hayPQE8EEOEu33CjU=";
+    repo = "gore";
+    rev = "v${finalAttrs.version}";
+    sha256 = "sha256-niMYoYkDaZsv6ntUIfB0B4VheiG6rMouZGUSjHnm51w=";
   };
 
-  vendorHash = "sha256-0eCRDlcqZf+RAbs8oBRr+cd7ncWX6fXk/9jd8/GnAiw=";
+  vendorHash = "sha256-oS5LJfLFrmHEwayoD+HygfamZpmerIL1i4QtoRL4Om4=";
 
   doCheck = false;
 
-  meta = with lib; {
+  meta = {
     description = "Yet another Go REPL that works nicely";
     mainProgram = "gore";
     homepage = "https://github.com/motemen/gore";
-    license = licenses.mit;
-    maintainers = with maintainers; [ offline ];
+    license = lib.licenses.mit;
+    maintainers = [ ];
   };
-}
+})

@@ -11,25 +11,21 @@
   pytestCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "cramjam";
-  # 2.9.1 ships with experimental decoders that were having issues.
-  # They were removed afterwards but the change has not been released yet:
-  # https://github.com/milesgranger/cramjam/pull/197
-  # TODO: update to the next stable release when available
-  version = "2.9.1-unstable-2025-01-04";
+  version = "2.12.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "milesgranger";
     repo = "cramjam";
-    rev = "61564e7761e38e5ec55e7939ccd6a276c2c55d11";
-    hash = "sha256-KTYTelQdN5EIJFbyQgrYcayqkAQQSNF+SHqUFFHf1Z8=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-vGT57ou9nnCVCw8LR+w+5MV54EqwT2R+ww9acRQk8Lc=";
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit pname src version;
-    hash = "sha256-Jw9zbgcrX3pofW7E8b4xzZYKj3h6ufCVLjv2xD/qONo=";
+    inherit (finalAttrs) pname src version;
+    hash = "sha256-evXYLbv+GwSBUJBb0upjQTFtMPdQbKka8KfJltMUmDs=";
   };
 
   nativeBuildInputs = with rustPlatform; [
@@ -50,6 +46,12 @@ buildPythonPackage rec {
     CI = true;
   };
 
+  disabledTests = [
+    # I (@GaetanLepage) cannot reproduce the failure, but it fails consistently on Ofborg with:
+    # SyntaxError: could not convert string to float: 'V' - Consider hexadecimal for huge integer literals to avoid decimal conversion limits.
+    "test_variants_decompress_into"
+  ];
+
   disabledTestPaths = [
     "benchmarks/test_bench.py"
   ];
@@ -59,8 +61,8 @@ buildPythonPackage rec {
   meta = {
     description = "Thin Python bindings to de/compression algorithms in Rust";
     homepage = "https://github.com/milesgranger/pyrus-cramjam";
-    changelog = "https://github.com/milesgranger/cramjam/releases/tag/v${version}";
+    changelog = "https://github.com/milesgranger/cramjam/releases/tag/${finalAttrs.src.tag}";
     license = with lib.licenses; [ mit ];
     maintainers = with lib.maintainers; [ veprbl ];
   };
-}
+})

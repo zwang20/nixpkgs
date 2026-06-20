@@ -7,27 +7,41 @@
   pkg-config,
   glibc,
   openssl,
+  libcap_ng,
   libepoxy,
   libdrm,
   pipewire,
   virglrenderer,
   libkrunfw,
+  nix-update-script,
   rustc,
+  withBlk ? false,
+  withNet ? false,
   withGpu ? false,
   withSound ? false,
-  withNet ? false,
-  sevVariant ? false,
+  withInput ? false,
+  withTimesync ? false,
+  variant ? null,
 }:
 
+assert lib.elem variant [
+  null
+  "sev"
+  "tdx"
+];
+
+let
+  libkrunfw' = (libkrunfw.override { inherit variant; });
+in
 stdenv.mkDerivation (finalAttrs: {
-  pname = "libkrun";
-  version = "1.9.8";
+  pname = "libkrun" + lib.optionalString (variant != null) "-${variant}";
+  version = "1.19.0";
 
   src = fetchFromGitHub {
-    owner = "containers";
+    owner = "libkrun";
     repo = "libkrun";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-a5ot5ad8boANK3achn6PJ52k/xmxawbTM0/hEEC/fss=";
+    hash = "sha256-g4u34sGdgv6mRRry9b5TAXSx+pmVwCNSD3YNtr6qRxo=";
   };
 
   outputs = [
@@ -37,53 +51,73 @@ stdenv.mkDerivation (finalAttrs: {
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit (finalAttrs) src;
-    hash = "sha256-X1NPZQaXFBw9IKD2DbBCPug0WDjv8XnpefbA2RNJgFU=";
+    hash = "sha256-rxdaqEKDDMxFwRuX6kLhqGyFXJTz+Bx4mJJhYL5nPgU=";
   };
+
+  # Make sure libkrunfw can be found by dlopen()
+  env.RUSTFLAGS = toString (
+    map (flag: "-C link-arg=" + flag) [
+      "-Wl,--push-state,--no-as-needed"
+      ("-lkrunfw" + lib.optionalString (variant != null) "-${variant}")
+      "-Wl,--pop-state"
+    ]
+  );
 
   nativeBuildInputs = [
     rustPlatform.cargoSetupHook
     rustPlatform.bindgenHook
     cargo
+    pkg-config
     rustc
-  ] ++ lib.optional (sevVariant || withGpu) pkg-config;
+  ];
 
-  buildInputs =
-    [
-      (libkrunfw.override { inherit sevVariant; })
-      glibc
-      glibc.static
-    ]
-    ++ lib.optionals withGpu [
-      libepoxy
-      libdrm
-      virglrenderer
-    ]
-    ++ lib.optional withSound pipewire
-    ++ lib.optional sevVariant openssl;
+  buildInputs = [
+    libcap_ng
+    libkrunfw'
+    glibc
+    glibc.static
+  ]
+  ++ lib.optionals withGpu [
+    libepoxy
+    libdrm
+    virglrenderer
+  ]
+  ++ lib.optional withSound pipewire
+  ++ lib.optional (variant == "sev" || variant == "tdx") openssl;
 
-  makeFlags =
-    [
-      "PREFIX=${placeholder "out"}"
-    ]
-    ++ lib.optional withGpu "GPU=1"
-    ++ lib.optional withSound "SND=1"
-    ++ lib.optional withNet "NET=1"
-    ++ lib.optional sevVariant "SEV=1";
+  makeFlags = [
+    "PREFIX=${placeholder "out"}"
+  ]
+  ++ lib.optional withBlk "BLK=1"
+  ++ lib.optional withNet "NET=1"
+  ++ lib.optional withGpu "GPU=1"
+  ++ lib.optional withSound "SND=1"
+  ++ lib.optional withInput "INPUT=1"
+  ++ lib.optional withTimesync "TIMESYNC=1"
+  ++ lib.optional (variant == "sev") "SEV=1"
+  ++ lib.optional (variant == "tdx") "TDX=1";
 
   postInstall = ''
     mkdir -p $dev/lib/pkgconfig
-    mv $out/lib64/pkgconfig $dev/lib/pkgconfig
-    mv $out/include $dev/include
+    mv $out/lib64/pkgconfig $dev/lib/
+    mv $out/include $dev/
   '';
 
-  meta = with lib; {
+  env.OPENSSL_NO_VENDOR = true;
+
+  passthru.updateScript = nix-update-script {
+    attrPath = "libkrun";
+  };
+
+  meta = {
     description = "Dynamic library providing Virtualization-based process isolation capabilities";
-    homepage = "https://github.com/containers/libkrun";
-    license = licenses.asl20;
-    maintainers = with maintainers; [
+    homepage = "https://github.com/libkrun/libkrun";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [
       nickcao
       RossComputerGuy
+      nrabulinski
     ];
-    platforms = libkrunfw.meta.platforms;
+    platforms = libkrunfw'.meta.platforms;
   };
 })

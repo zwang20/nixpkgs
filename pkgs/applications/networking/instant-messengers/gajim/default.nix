@@ -1,6 +1,6 @@
 {
   lib,
-  fetchurl,
+  fetchFromGitLab,
   gettext,
   wrapGAppsHook3,
 
@@ -11,6 +11,7 @@
   adwaita-icon-theme,
   gtksourceview5,
   glib-networking,
+  libadwaita,
 
   # Test dependencies
   xvfb-run,
@@ -30,49 +31,55 @@
   enableRST ? true,
   docutils,
   enableSpelling ? true,
-  gspell,
+  libspelling,
   enableUPnP ? true,
   gupnp-igd,
   enableAppIndicator ? true,
   libappindicator-gtk3,
+  enableSoundNotifications ? true,
+  gsound,
   extraPythonPackages ? ps: [ ],
 }:
 
 python3.pkgs.buildPythonApplication rec {
   pname = "gajim";
-  version = "2.0.3";
+  version = "2.4.6";
 
-  src = fetchurl {
-    url = "https://gajim.org/downloads/${lib.versions.majorMinor version}/gajim-${version}.tar.gz";
-    hash = "sha256-DbM80fyJ+jwB9Yc9vfoiDqW7Sx7MDR0OEkHdOC6nRG4=";
+  src = fetchFromGitLab {
+    domain = "dev.gajim.org";
+    owner = "gajim";
+    repo = "gajim";
+    tag = version;
+    hash = "sha256-QHfJ52uMDlE/rqqy7y2JIQLMOPaTp7eh4DEsPLBx6p8=";
   };
 
-  format = "pyproject";
+  pyproject = true;
 
-  buildInputs =
-    [
-      gtk4
-      adwaita-icon-theme
-      gtksourceview5
-      glib-networking
-    ]
-    ++ lib.optionals enableJingle [
-      farstream
-      gstreamer
-      gst-plugins-base
-      gst-libav
-      gst-plugins-good
-      libnice
-    ]
-    ++ lib.optional enableSecrets libsecret
-    ++ lib.optional enableSpelling gspell
-    ++ lib.optional enableUPnP gupnp-igd
-    ++ lib.optional enableAppIndicator libappindicator-gtk3;
+  buildInputs = [
+    gtk4
+    adwaita-icon-theme
+    gtksourceview5
+    glib-networking
+  ]
+  ++ lib.optionals enableJingle [
+    farstream
+    gstreamer
+    gst-plugins-base
+    gst-libav
+    gst-plugins-good
+    libnice
+  ]
+  ++ lib.optional enableSecrets libsecret
+  ++ lib.optional enableSpelling libspelling
+  ++ lib.optional enableUPnP gupnp-igd
+  ++ lib.optional enableAppIndicator libappindicator-gtk3
+  ++ lib.optional enableSoundNotifications gsound;
 
   nativeBuildInputs = [
     gettext
     wrapGAppsHook3
     gobject-introspection
+    libadwaita
   ];
 
   dontWrapGApps = true;
@@ -93,7 +100,6 @@ python3.pkgs.buildPythonApplication rec {
     with python3.pkgs;
     [
       nbxmpp
-      pygobject3
       dbus-python
       pillow
       css-parser
@@ -106,7 +112,11 @@ python3.pkgs.buildPythonApplication rec {
       qrcode
       sqlalchemy
       emoji
+      httpx
+      h2
+      truststore
     ]
+    ++ httpx.optional-dependencies.socks
     ++ lib.optionals enableE2E [
       pycrypto
       python-gnupg
@@ -138,7 +148,8 @@ python3.pkgs.buildPythonApplication rec {
     license = lib.licenses.gpl3Plus;
     maintainers = with lib.maintainers; [
       raskin
-      abbradar
+      hlad
+      vbgl
     ];
     downloadPage = "http://gajim.org/download/";
     platforms = lib.platforms.linux;

@@ -11,6 +11,7 @@
   glib,
   libinput,
   pulseaudio,
+  pipewire,
   udev,
   xkeyboard_config,
   nix-update-script,
@@ -19,23 +20,27 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "cosmic-applets";
-  version = "1.0.0-alpha.6";
+  version = "1.0.16";
 
+  # nixpkgs-update: no auto update
   src = fetchFromGitHub {
     owner = "pop-os";
     repo = "cosmic-applets";
     tag = "epoch-${finalAttrs.version}";
-    hash = "sha256-kRj2hEtE8FYky9Fn8hgHBo+UwWjOoS7/ROh9qz/0Vzs=";
+    hash = "sha256-o+rEO+IA337fhpq6TsH+UZEN7kb/PqydlKo77NyCRcM=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-jADtvhMzWdJydT1T14PSk4ggZpWIcXiOK0TW2llKeos=";
+  cargoHash = "sha256-tbGuyqdDTsKYpKxeAuachwbPHTPhmb9Sg3qzxHYosjo=";
+
+  separateDebugInfo = true;
+  __structuredAttrs = true;
 
   nativeBuildInputs = [
     just
     pkg-config
     util-linuxMinimal
     libcosmicAppHook
+    rustPlatform.bindgenHook
   ];
 
   buildInputs = [
@@ -43,6 +48,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     glib
     libinput
     pulseaudio
+    pipewire
     udev
   ];
 
@@ -74,10 +80,9 @@ rustPlatform.buildRustPackage (finalAttrs: {
         cosmic-autologin-noxwayland
         ;
     };
+
     updateScript = nix-update-script {
       extraArgs = [
-        "--version"
-        "unstable"
         "--version-regex"
         "epoch-(.*)"
       ];
@@ -88,11 +93,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     homepage = "https://github.com/pop-os/cosmic-applets";
     description = "Applets for the COSMIC Desktop Environment";
     license = lib.licenses.gpl3Only;
-    maintainers = with lib.maintainers; [
-      qyliss
-      nyabinary
-      HeitorAugustoLN
-    ];
+    teams = [ lib.teams.cosmic ];
     platforms = lib.platforms.linux;
   };
 })

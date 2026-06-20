@@ -1,25 +1,32 @@
 {
   lib,
   rustPlatform,
+  mold,
+  stdenv,
   fetchFromGitHub,
   nix-update-script,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "microfetch";
-  version = "0.4.6";
+  version = "1.1.0";
 
   src = fetchFromGitHub {
     owner = "NotAShelf";
     repo = "microfetch";
-    tag = "v${version}";
-    hash = "sha256-qpwzuzEqXsGO4y3ClaY25Q4rFm2RyPl/X3yNcQz3R4E=";
+    tag = "${finalAttrs.version}";
+    hash = "sha256-akJ44+X1POnV1dZnWq66X5vWokp9TGgJ5/Ey6kh/icA=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-UguHTRHdcogxg/8DmRWSE7XwmaF36MTGHzF5CpMBc3Y=";
+  cargoHash = "sha256-mVS1fv/FI3rDoNm2D7ToiqZJZuySggK2zW2KbbxtpuQ=";
+
+  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [ mold ];
 
   passthru.updateScript = nix-update-script { };
+
+  # For whatever reason the cargo test build in the checkphase attempts to use dynamic libraries.
+  # Could be wrong, but rectifying this is probably more of an investment than it's worth.
+  doCheck = false;
 
   meta = {
     description = "Microscopic fetch script in Rust, for NixOS systems";
@@ -32,4 +39,4 @@ rustPlatform.buildRustPackage rec {
     mainProgram = "microfetch";
     platforms = lib.platforms.linux;
   };
-}
+})

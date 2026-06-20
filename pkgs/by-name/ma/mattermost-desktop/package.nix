@@ -2,7 +2,7 @@
   lib,
   fetchFromGitHub,
   buildNpmPackage,
-  electron_33,
+  electron_40,
   makeWrapper,
   testers,
   mattermost-desktop,
@@ -10,21 +10,21 @@
 }:
 
 let
-  electron = electron_33;
+  electron = electron_40;
 in
 
 buildNpmPackage rec {
   pname = "mattermost-desktop";
-  version = "5.10.2";
+  version = "6.1.2";
 
   src = fetchFromGitHub {
     owner = "mattermost";
     repo = "desktop";
     tag = "v${version}";
-    hash = "sha256-LHjVmrsOdk8vfsqvNEWkzpusm6jbz3SOb3bEaIb7rb4=";
+    hash = "sha256-EI1bDSiWdLCXlhUk1CmbUyYU7giey366cZLuhs0qtqY=";
   };
 
-  npmDepsHash = "sha256-LAbqsMdMmmHGgvg2ilz6neQxMOK3jtCKt8K0M8BWifs=";
+  npmDepsHash = "sha256-7XUZ2rt2fZiQNpW8iHnNDbCSuK4/srWqIEKOKM6xty8=";
   npmBuildScript = "build-prod";
   makeCacheWritable = true;
 
@@ -37,6 +37,8 @@ buildNpmPackage rec {
       --replace-fail \
         "const VERSION = childProcess.execSync('git rev-parse --short HEAD', {cwd: __dirname}).toString();" \
         "const VERSION = process.env.version;"
+    substituteInPlace src/common/config/buildConfig.ts \
+      --replace-fail 'enableUpdateNotifications: true,' 'enableUpdateNotifications: false,'
   '';
 
   postBuild = ''
@@ -59,7 +61,7 @@ buildNpmPackage rec {
       $out/share/applications \
       $out/share/icons/hicolor/512x512/apps
 
-    readonly dist=release/linux-unpacked
+    readonly dist=release/*-unpacked
 
     cp -a $dist/resources $out/share/${pname}
 
@@ -87,7 +89,7 @@ buildNpmPackage rec {
       command = "env HOME=/tmp ${meta.mainProgram} --version";
     };
     updateScript = nix-update-script {
-      extraArgs = [ "--version-regex=^(\\d+\\.\\d+\\.\\d+)$" ];
+      extraArgs = [ "--version-regex=^v(\\d+\\.\\d+\\.\\d+)$" ];
     };
   };
 
@@ -101,6 +103,7 @@ buildNpmPackage rec {
     maintainers = with lib.maintainers; [
       joko
       liff
+      yayayayaka
     ];
   };
 }

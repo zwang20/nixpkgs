@@ -9,31 +9,26 @@
   milksnake,
   cffi,
   pytestCheckHook,
-  nixosTests,
+  nix-update-script,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "symbolic";
-  version = "10.2.1"; # glitchtip currently only works with symbolic 10.x
+  version = "13.2.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "getsentry";
     repo = "symbolic";
-    tag = version;
-    hash = "sha256-3u4MTzaMwryGpFowrAM/MJOmnU8M+Q1/0UtALJib+9A=";
-    # for some reason the `py` directory in the tarball is empty, so we fetch the source via git instead
+    tag = finalAttrs.version;
+    # the `py` directory is not included in the tarball, so we fetch the source via git instead
     forceFetchGit = true;
+    hash = "sha256-Nks8CClNENRFBbEGgFP3yhi5sWR/iiaLOdTayPD7M9k=";
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit
-      pname
-      version
-      src
-      postPatch
-      ;
-    hash = "sha256-cpIVzgcxKfEA5oov6/OaXqknYsYZUoduLTn2qIXGL5U=";
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-r+9mrGyr78UenC9BFpW1a+VjEAXgcamLOoI8V1N10Cg=";
   };
 
   nativeBuildInputs = [
@@ -46,10 +41,6 @@ buildPythonPackage rec {
 
   dependencies = [ cffi ];
 
-  postPatch = ''
-    ln -s ${./Cargo.lock} Cargo.lock
-  '';
-
   preBuild = ''
     cd py
   '';
@@ -60,17 +51,17 @@ buildPythonPackage rec {
 
   nativeCheckInputs = [ pytestCheckHook ];
 
-  pytestFlagsArray = [ "py" ];
+  enabledTestPaths = [ "py" ];
 
   pythonImportsCheck = [ "symbolic" ];
 
-  passthru.tests = { inherit (nixosTests) glitchtip; };
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Python library for dealing with symbol files and more";
     homepage = "https://github.com/getsentry/symbolic";
-    changelog = "https://github.com/getsentry/symbolic/blob/${version}/CHANGELOG.md";
+    changelog = "https://github.com/getsentry/symbolic/blob/${finalAttrs.src.tag}/CHANGELOG.md";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ defelo ];
   };
-}
+})

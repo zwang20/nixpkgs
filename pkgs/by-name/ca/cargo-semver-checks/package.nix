@@ -4,38 +4,31 @@
   fetchFromGitHub,
   cmake,
   zlib,
-  stdenv,
-  darwin,
   testers,
   cargo-semver-checks,
   nix-update-script,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "cargo-semver-checks";
-  version = "0.40.0";
+  version = "0.48.0";
 
   src = fetchFromGitHub {
     owner = "obi1kenobi";
     repo = "cargo-semver-checks";
-    tag = "v${version}";
-    hash = "sha256-bit8/o5MqlIL4vvCS9fGR2rNtD/Dn58aFqsmyhKueUI=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-fF29YLYNL0gRD5ZcgBL19wO9DqLpXTQsxQkXlVw8U7A=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-/8Juz8F5vJ/JLDYZUG9tyxkLSN7YPh5yAKJflpuSZ0w=";
+  cargoHash = "sha256-VHxgPvlhasM3GnK1uMDA2vi0z3TxHWpCOlkWJhcV/F8=";
 
   nativeBuildInputs = [
     cmake
   ];
 
-  buildInputs =
-    [
-      zlib
-    ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      darwin.apple_sdk.frameworks.SystemConfiguration
-    ];
+  buildInputs = [
+    zlib
+  ];
 
   checkFlags = [
     # requires internet access
@@ -53,7 +46,7 @@ rustPlatform.buildRustPackage rec {
     substituteInPlace test_outputs/integration_snapshots__bugreport.snap \
       --replace-fail \
         'cargo-semver-checks [VERSION] ([HASH])' \
-        'cargo-semver-checks ${version}'
+        'cargo-semver-checks ${finalAttrs.version}'
   '';
 
   passthru = {
@@ -65,14 +58,14 @@ rustPlatform.buildRustPackage rec {
     description = "Tool to scan your Rust crate for semver violations";
     mainProgram = "cargo-semver-checks";
     homepage = "https://github.com/obi1kenobi/cargo-semver-checks";
-    changelog = "https://github.com/obi1kenobi/cargo-semver-checks/releases/tag/v${version}";
+    changelog = "https://github.com/obi1kenobi/cargo-semver-checks/releases/tag/v${finalAttrs.version}";
     license = with lib.licenses; [
       mit # or
       asl20
     ];
     maintainers = with lib.maintainers; [
-      figsoda
       matthiasbeyer
+      chrjabs
     ];
   };
-}
+})

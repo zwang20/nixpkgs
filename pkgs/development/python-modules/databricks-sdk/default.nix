@@ -8,6 +8,7 @@
 
   # dependencies
   google-auth,
+  protobuf,
   requests,
 
   # tests
@@ -19,24 +20,31 @@
   requests-mock,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "databricks-sdk";
-  version = "0.49.0";
+  version = "0.116.0";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "databricks";
     repo = "databricks-sdk-py";
-    tag = "v${version}";
-    hash = "sha256-lNP3ETmRK6sRx9mP2JuIe/OcBbCDEvipST2LUjycgjs=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-o9QVw0x2FFNT+cgdGELH7f2DEmzq2xeyisjyY0FNTaE=";
   };
 
   build-system = [
     setuptools
   ];
 
+  pythonRelaxDeps = [
+    # For protobuf 7
+    "protobuf"
+  ];
+
   dependencies = [
     google-auth
+    protobuf
     requests
   ];
 
@@ -69,6 +77,12 @@ buildPythonPackage rec {
     "test_load_azure_tenant_id_happy_path"
     "test_load_azure_tenant_id_no_location_header"
     "test_load_azure_tenant_id_unparsable_location_header"
+    # Take an exceptionally long time when sandboxing is enabled due to retries
+    "test_multipart_upload"
+    "test_rewind_seekable_stream"
+    "test_resumable_upload"
+    # flaky -- ConnectionBroken under heavy load indicates a timing issue
+    "test_github_oidc_flow_works_with_azure"
   ];
 
   __darwinAllowLocalNetworking = true;
@@ -76,8 +90,8 @@ buildPythonPackage rec {
   meta = {
     description = "Databricks SDK for Python";
     homepage = "https://github.com/databricks/databricks-sdk-py";
-    changelog = "https://github.com/databricks/databricks-sdk-py/blob/v${version}/CHANGELOG.md";
+    changelog = "https://github.com/databricks/databricks-sdk-py/blob/${finalAttrs.src.tag}/CHANGELOG.md";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [ GaetanLepage ];
   };
-}
+})

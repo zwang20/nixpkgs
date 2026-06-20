@@ -11,23 +11,25 @@
   gbenchmark,
   gtest,
   protobuf,
-  glog,
+  abseil-cpp,
   nlohmann_json,
   zlib,
   openssl,
   libuuid,
   tomlplusplus,
   fuse3,
+  curl,
+  nix-update-script,
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "buildbox";
-  version = "1.3.11";
+  version = "1.4.8";
 
   src = fetchFromGitLab {
     owner = "BuildGrid";
     repo = "buildbox/buildbox";
     tag = finalAttrs.version;
-    hash = "sha256-lIRYwZLjYCpA4TMO3GF/yykVKn7LDyNHW9zItZmS9vM=";
+    hash = "sha256-P7CFgK5CkHAf5gddmm0SBGIkC/AAdCO5pkya/XNuby0=";
   };
 
   nativeBuildInputs = [
@@ -38,10 +40,11 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   buildInputs = [
+    abseil-cpp
     bubblewrap
+    curl
     fuse3
     gbenchmark
-    glog
     grpc
     gtest
     libuuid
@@ -53,8 +56,10 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   postFixup = ''
-    makeWrapper $out/bin/buildbox-run-bubblewrap $out/bin/buildbox-run --prefix PATH : ${lib.makeBinPath [ bubblewrap ]}
+    wrapProgram $out/bin/buildbox-run --prefix PATH : ${lib.makeBinPath [ bubblewrap ]}
   '';
+
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Set of tools for remote worker build execution";

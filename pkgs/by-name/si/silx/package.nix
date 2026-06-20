@@ -4,15 +4,15 @@
   lib,
 }:
 
-python3Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   pname = "silx";
-  version = "2.2.1";
+  version = "2.2.2";
 
   pyproject = true;
 
   src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-9di3TNjhhoOT4bRwPfaM/jTbVW5+V9b8V2V6ZBwXZjo=";
+    inherit (finalAttrs) pname version;
+    hash = "sha256-XZujZ7VxXMTLkBE4jz1xIA1763Z2yRCVL9E1CjQsVx8=";
   };
 
   build-system = with python3Packages; [
@@ -39,4 +39,4 @@ python3Packages.buildPythonApplication rec {
     mainProgram = "silx";
   };
 
-}
+})

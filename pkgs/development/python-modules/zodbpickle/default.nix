@@ -1,7 +1,6 @@
 {
   lib,
   buildPythonPackage,
-  pythonOlder,
   fetchPypi,
   setuptools,
   pytestCheckHook,
@@ -9,26 +8,24 @@
 
 buildPythonPackage rec {
   pname = "zodbpickle";
-  version = "4.1.1";
+  version = "4.4";
   pyproject = true;
-
-  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-38DJFe8Umd0GA5cPXBECxr1+t7asRkNLKabYQL8Cckg=";
+    hash = "sha256-efM8xJoJsoqLO0A2nBQhboBXF364x+iY12r9azGUy3g=";
   };
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace "setuptools<74" "setuptools"
-  '';
 
   build-system = [ setuptools ];
 
   pythonImportsCheck = [ "zodbpickle" ];
 
   nativeCheckInputs = [ pytestCheckHook ];
+
+  preCheck = ''
+    mv src/zodbpickle/tests ./.
+    rm -rf src
+  '';
 
   # fails..
   disabledTests = [

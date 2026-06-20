@@ -4,20 +4,47 @@
   rustPlatform,
   protobuf,
   versionCheckHook,
+  cmake,
+  pkg-config,
+  nodejs,
+  fetchNpmDeps,
+  npmHooks,
+  nix-update-script,
 }:
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "clash-rs";
-  version = "0.7.5";
+  version = "0.10.6";
 
   src = fetchFromGitHub {
     owner = "Watfaq";
     repo = "clash-rs";
-    tag = "v${version}";
-    hash = "sha256-c4XF0F2ifTvbXTMGiJc1EaGTlS/X5ilZTpXe01uHs4Y=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-ncMJxVNHAgeXWhqZgWt3nth4BXqrrBaAEWmOVF/KsPg=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-ZSwNlknpZ0zKj+sklmO14Ey5DPZ0Wk9xxMiXwIiuRd0=";
+  patches = [
+    # Remove the `npm ci` call in build.rs as it fails.
+    ./skip-npm-ci.patch
+  ];
+
+  cargoHash = "sha256-WI+wg6cu0cBFrZYyN3GXlfHOmo/cVo2uMLn1D5YTOCQ=";
+
+  npmDeps = fetchNpmDeps {
+    name = "${finalAttrs.pname}-${finalAttrs.version}-npm-deps";
+    inherit (finalAttrs) src;
+    sourceRoot = "${finalAttrs.src.name}/clash-dashboard";
+    hash = "sha256-8fDeO7Yx+m2s0mzTO7MkQOQ0UYs8B2vFnNevHHZFghc=";
+  };
+
+  npmRoot = "clash-dashboard";
+
+  nativeBuildInputs = [
+    cmake
+    pkg-config
+    rustPlatform.bindgenHook
+    nodejs
+    npmHooks.npmConfigHook
+  ];
 
   nativeInstallCheckInputs = [
     protobuf
@@ -25,15 +52,14 @@ rustPlatform.buildRustPackage rec {
   ];
 
   env = {
-    # requires features: sync_unsafe_cell, unbounded_shifts, let_chains, ip
+    # requires nightly features: sync_unsafe_cell, unbounded_shifts, let_chains, ip
     RUSTC_BOOTSTRAP = 1;
+    # if_let_guard is stable since Rust 1.95.0, but some deps still carry
+    # the stale #![feature(if_let_guard)] attribute.
+    RUSTFLAGS = "-A stable-features";
   };
 
-  buildFeatures = [
-    "shadowsocks"
-    "tuic"
-    "onion"
-  ];
+  buildFeatures = [ "plus" ];
 
   doCheck = false; # test failed
 
@@ -43,7 +69,13 @@ rustPlatform.buildRustPackage rec {
   '';
 
   doInstallCheck = true;
-  versionCheckProgramArg = "--version";
+
+  passthru.updateScript = nix-update-script {
+    extraArgs = [
+      "--version-regex"
+      "^v([0-9.]+)$"
+    ];
+  };
 
   meta = {
     description = "Custom protocol, rule based network proxy software";
@@ -53,4 +85,4 @@ rustPlatform.buildRustPackage rec {
     maintainers = with lib.maintainers; [ aaronjheng ];
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
-}
+})

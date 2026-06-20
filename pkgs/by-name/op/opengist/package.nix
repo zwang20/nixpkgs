@@ -7,31 +7,28 @@
   moreutils,
   jq,
   git,
+  writableTmpDirAsHomeHook,
 }:
-let
-  # finalAttrs when 🥺 (buildGoModule does not support them)
-  # https://github.com/NixOS/nixpkgs/issues/273815
-  version = "1.9.1";
+
+buildGoModule (finalAttrs: {
+  pname = "opengist";
+
+  version = "1.12.2";
+
   src = fetchFromGitHub {
     owner = "thomiceli";
     repo = "opengist";
-    tag = "v${version}";
-    hash = "sha256-Zjn38OGnDtgD2OfIhgUxWo0Cx+ZmNv6UjJanASbjiYU=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-MZ7aKT4qmWH4NyT32ZUpBmqqLJYCtLpdlSJHh+h7IPI=";
   };
 
   frontend = buildNpmPackage {
     pname = "opengist-frontend";
-    inherit version src;
+    inherit (finalAttrs) version src;
+
     # npm complains of "invalid package". shrug. we can give it a version.
     postPatch = ''
-      ${lib.getExe jq} '.version = "${version}"' package.json | ${lib.getExe' moreutils "sponge"} package.json
-    '';
-
-    # copy pasta from the Makefile upstream, seems to be a workaround of sass
-    # issues, unsure why it is not done in vite:
-    # https://github.com/thomiceli/opengist/blob/05eccfa8e728335514a40476cd8116cfd1ca61dd/Makefile#L16-L19
-    postBuild = ''
-      EMBED=1 npx postcss 'public/assets/embed-*.css' -c public/postcss.config.js --replace
+      ${lib.getExe jq} '.version = "${finalAttrs.version}"' package.json | ${lib.getExe' moreutils "sponge"} package.json
     '';
 
     installPhase = ''
@@ -39,43 +36,41 @@ let
       cp -R public $out
     '';
 
-    npmDepsHash = "sha256-Uh+oXd//G/lPAMXRxijjEOpQNmeXK/XCIU7DJN3ujaY=";
+    npmDepsHash = "sha256-KDdXBE5X+fOuXF/hIkyRHscMmBQ/E0PCUednfEm5i8k=";
   };
-in
-buildGoModule {
-  pname = "opengist";
-  inherit version src;
-  vendorHash = "sha256-aqfr3yGyTXDtZDU8d1lbWWvFfY4fo6/PsSDwpiDtM90=";
+
+  vendorHash = "sha256-lhDga5shastI7BfnEnekFnUc2L8Ju6LazeqvD7+CK/o=";
+
   tags = [ "fs_embed" ];
+
   ldflags = [
     "-s"
-    "-X github.com/thomiceli/opengist/internal/config.OpengistVersion=v${version}"
+    "-X github.com/thomiceli/opengist/internal/config.OpengistVersion=v${finalAttrs.version}"
   ];
 
-  # required for tests
   nativeCheckInputs = [
     git
+    writableTmpDirAsHomeHook
   ];
-
-  # required for tests to not try to write into $HOME and fail
-  preCheck = ''
-    export OG_OPENGIST_HOME=$(mktemp -d)
-  '';
 
   doCheck = !stdenv.hostPlatform.isDarwin;
 
   checkPhase = ''
     runHook preCheck
+
     make test
+
     runHook postCheck
   '';
 
   postPatch = ''
-    cp -R ${frontend}/public/{manifest.json,assets} public/
+    mkdir -p public/.vite
+    cp ${finalAttrs.frontend}/public/.vite/manifest.json public/.vite/manifest.json
+    cp -R ${finalAttrs.frontend}/public/assets public/
   '';
 
   passthru = {
-    inherit frontend;
+    inherit (finalAttrs) frontend;
     updateScript = ./update.sh;
   };
 
@@ -83,9 +78,9 @@ buildGoModule {
     description = "Self-hosted pastebin powered by Git";
     homepage = "https://github.com/thomiceli/opengist";
     license = lib.licenses.agpl3Only;
-    changelog = "https://github.com/thomiceli/opengist/blob/${src.tag}/CHANGELOG.md";
+    changelog = "https://github.com/thomiceli/opengist/blob/v${finalAttrs.version}/CHANGELOG.md";
     platforms = lib.platforms.unix;
     maintainers = with lib.maintainers; [ phanirithvij ];
     mainProgram = "opengist";
   };
-}
+})

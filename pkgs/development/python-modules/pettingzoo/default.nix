@@ -1,47 +1,51 @@
 {
   lib,
+  stdenv,
   buildPythonPackage,
-  chess,
   fetchFromGitHub,
+
+  # build-system
+  setuptools,
+
+  # dependencies
   gymnasium,
   numpy,
-  pillow,
-  pre-commit,
-  pybox2d,
-  pygame,
+
+  # optional-dependencies
+  pygame-ce,
   pymunk,
+  chess,
+  rlcard,
+  shimmy,
+  pillow,
+  pybox2d,
+  scipy,
+  pre-commit,
   pynput,
   pytest,
   pytest-cov-stub,
   pytest-markdown-docs,
   pytest-xdist,
+
+  # tests
   pytestCheckHook,
-  pythonOlder,
-  rlcard,
-  scipy,
-  setuptools,
-  shimmy,
-  stdenv,
-  wheel,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "pettingzoo";
-  version = "1.24.3";
+  version = "1.26.1";
   pyproject = true;
-
-  disabled = pythonOlder "3.8";
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "Farama-Foundation";
     repo = "PettingZoo";
-    tag = version;
-    hash = "sha256-TVM4MrA4W6AIWEdBIecI85ahJAAc21f27OzCxSpOoZU=";
+    tag = finalAttrs.version;
+    hash = "sha256-WrfjkDnmir6bZvtMD7MVQKVoGvK+lutlOoNe9SNQ8jU=";
   };
 
   build-system = [
     setuptools
-    wheel
   ];
 
   dependencies = [
@@ -50,26 +54,25 @@ buildPythonPackage rec {
   ];
 
   optional-dependencies = {
-    all = lib.flatten (lib.attrValues (lib.filterAttrs (n: v: n != "all") optional-dependencies));
     atari = [
       # multi-agent-ale-py
-      pygame
+      pygame-ce
     ];
     butterfly = [
-      pygame
+      pygame-ce
       pymunk
     ];
     classic = [
       chess
-      pygame
+      pygame-ce
       rlcard
       shimmy
     ];
-    mpe = [ pygame ];
+    mpe = [ pygame-ce ];
     other = [ pillow ];
     sisl = [
       pybox2d
-      pygame
+      pygame-ce
       pymunk
       scipy
     ];
@@ -88,7 +91,7 @@ buildPythonPackage rec {
 
   nativeCheckInputs = [
     chess
-    pygame
+    pygame-ce
     pymunk
     pytest-markdown-docs
     pytest-xdist
@@ -103,21 +106,20 @@ buildPythonPackage rec {
     "test/unwrapped_test.py"
   ];
 
-  disabledTests =
-    [
-      # ImportError: cannot import name 'pytest_plugins' from 'pettingzoo.classic'
-      "test_chess"
-    ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      # Crashes on darwin: `Fatal Python error: Aborted`
-      "test_multi_episode_parallel_env_wrapper"
-    ];
+  disabledTests = [
+    # ImportError: cannot import name 'pytest_plugins' from 'pettingzoo.classic'
+    "test_chess"
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # Crashes on darwin: `Fatal Python error: Aborted`
+    "test_multi_episode_parallel_env_wrapper"
+  ];
 
-  meta = with lib; {
+  meta = {
     description = "API standard for multi-agent reinforcement learning environments, with popular reference environments and related utilities";
     homepage = "https://github.com/Farama-Foundation/PettingZoo";
-    changelog = "https://github.com/Farama-Foundation/PettingZoo/releases/tag/${version}";
-    license = licenses.mit;
-    maintainers = with maintainers; [ GaetanLepage ];
+    changelog = "https://github.com/Farama-Foundation/PettingZoo/releases/tag/${finalAttrs.src.tag}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ GaetanLepage ];
   };
-}
+})

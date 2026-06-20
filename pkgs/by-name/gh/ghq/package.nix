@@ -1,34 +1,40 @@
 {
   lib,
-  buildGoModule,
+  stdenv,
+  buildGo126Module,
   fetchFromGitHub,
+  installShellFiles,
   testers,
   nix-update-script,
   ghq,
 }:
 
-buildGoModule rec {
+buildGo126Module (finalAttrs: {
   pname = "ghq";
-  version = "1.8.0";
+  version = "1.10.1";
 
   src = fetchFromGitHub {
     owner = "x-motemen";
     repo = "ghq";
-    tag = "v${version}";
-    sha256 = "sha256-5BN96/RShfJpkfpJe0qrZVDuyFoAV9kgCiBv4REY/5Y=";
+    tag = "v${finalAttrs.version}";
+    sha256 = "sha256-SmcgBwd5k/lAv9bwYRpkIM0fil2ajSlT8zznP7bgpDk=";
   };
 
-  vendorHash = "sha256-jP2Ne/EhmE3tACY1+lHucgBt3VnT4gaQisE3/gVM5Ec=";
+  vendorHash = "sha256-8aC1J/mM7ZTEQBdZwstvHxMKDPqgzjzYztC7shuwu/Q=";
 
   doCheck = false;
 
   ldflags = [
-    "-X=main.Version=${version}"
+    "-X=main.Version=${finalAttrs.version}"
   ];
 
-  postInstall = ''
-    install -m 444 -D ${src}/misc/zsh/_ghq $out/share/zsh/site-functions/_ghq
-    install -m 444 -D ${src}/misc/bash/_ghq $out/share/bash-completion/completions/_ghq
+  nativeBuildInputs = [ installShellFiles ];
+
+  postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+    installShellCompletion \
+      --bash $src/misc/bash/_ghq \
+      --fish $src/misc/fish/ghq.fish \
+      --zsh $src/misc/zsh/_ghq
   '';
 
   passthru = {
@@ -45,4 +51,4 @@ buildGoModule rec {
     license = lib.licenses.mit;
     mainProgram = "ghq";
   };
-}
+})

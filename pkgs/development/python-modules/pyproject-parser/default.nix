@@ -2,7 +2,6 @@
   buildPythonPackage,
   fetchPypi,
   lib,
-  setuptools,
   apeye-core,
   attrs,
   click,
@@ -10,6 +9,9 @@
   docutils,
   dom-toml,
   domdf-python-tools,
+  hatchling,
+  hatch-requirements-txt,
+  license-expression,
   natsort,
   packaging,
   readme-renderer,
@@ -19,21 +21,26 @@
 }:
 buildPythonPackage rec {
   pname = "pyproject-parser";
-  version = "0.11.1";
+  version = "0.14.0";
   pyproject = true;
 
   src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-0ejtu6OlSA6w/z/+j2lDuikFGZh4r/HLBZhJAKZhggE=";
+    pname = "pyproject_parser";
+    inherit version;
+    hash = "sha256-QEe9miURXkABmeZyzZ2Pi6QF2BSNZadsvzr7z3fpZuI=";
   };
 
-  build-system = [ setuptools ];
+  build-system = [
+    hatchling
+    hatch-requirements-txt
+  ];
 
   dependencies = [
     apeye-core
     attrs
     dom-toml
     domdf-python-tools
+    license-expression
     natsort
     packaging
     shippinglabel
@@ -41,7 +48,7 @@ buildPythonPackage rec {
   ];
 
   optional-dependencies = {
-    all = lib.flatten (lib.attrValues (lib.filterAttrs (n: v: n != "all") optional-dependencies));
+    all = lib.concatAttrValues (lib.removeAttrs optional-dependencies [ "all" ]);
     cli = [
       click
       consolekit
@@ -50,13 +57,9 @@ buildPythonPackage rec {
     readme = [
       docutils
       readme-renderer
-    ] ++ readme-renderer.optional-dependencies.md;
+    ]
+    ++ readme-renderer.optional-dependencies.md;
   };
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace-fail '"setuptools!=61.*,<=67.1.0,>=40.6.0"' '"setuptools"'
-  '';
 
   meta = {
     description = "Parser for ‘pyproject.toml’";

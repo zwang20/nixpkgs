@@ -14,12 +14,12 @@
 
 buildPythonPackage rec {
   pname = "pathspec";
-  version = "0.12.1";
-  format = "pyproject";
+  version = "1.0.4";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-pILVFQOhqzOxxnpsOBOiaVPb3HHDHayu+ag4xOKfVxI=";
+    hash = "sha256-AhDiroohqRN8DUcFeMsOWVr4ftqm6/Ev8XbxSgLg5kU=";
   };
 
   nativeBuildInputs = [ flit-core ];
@@ -42,6 +42,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/cpburnz/python-path-specification";
     changelog = "https://github.com/cpburnz/python-pathspec/blob/v${version}/CHANGES.rst";
     license = lib.licenses.mpl20;
-    maintainers = with lib.maintainers; [ copumpkin ];
+    maintainers = [ ];
   };
 }

@@ -4,31 +4,30 @@
   fetchFromGitHub,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "minijinja";
-  version = "2.9.0";
+  version = "2.21.0";
 
   src = fetchFromGitHub {
     owner = "mitsuhiko";
     repo = "minijinja";
-    rev = version;
-    hash = "sha256-WbWMssIQ8ETaVaJ9fEkUxHmnylH4hdO14XMwyB0BtFY=";
+    rev = finalAttrs.version;
+    hash = "sha256-1BPChGjf8ke9dEm6aVD+aKM2tDuWhG7VifV3RvukbdY=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-B9La6DSrsJXsausew/FMcl/iQvZxrNkavddtU5yIQuA=";
+  cargoHash = "sha256-KpPPapS2iavhC/EP+qyeojo0nngfpjvyboSYzhGdI/0=";
 
   # The tests relies on the presence of network connection
   doCheck = false;
 
   cargoBuildFlags = "--bin minijinja-cli";
 
-  meta = with lib; {
+  meta = {
     description = "Command Line Utility to render MiniJinja/Jinja2 templates";
     homepage = "https://github.com/mitsuhiko/minijinja";
-    license = with licenses; [ asl20 ];
-    maintainers = with maintainers; [ psibi ];
-    changelog = "https://github.com/mitsuhiko/minijinja/blob/${version}/CHANGELOG.md";
+    license = with lib.licenses; [ asl20 ];
+    maintainers = with lib.maintainers; [ psibi ];
+    changelog = "https://github.com/mitsuhiko/minijinja/blob/${finalAttrs.version}/CHANGELOG.md";
     mainProgram = "minijinja-cli";
   };
-}
+})

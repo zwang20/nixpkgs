@@ -1,33 +1,54 @@
 {
-  cmake,
-  crocoddyl,
-  doxygen,
-  fetchFromGitHub,
-  fmt,
-  fontconfig,
-  gbenchmark,
-  graphviz,
   lib,
+  fetchFromGitHub,
+  fontconfig,
   llvmPackages,
-  pinocchio,
-  pkg-config,
-  proxsuite-nlp,
-  python3Packages,
-  pythonSupport ? false,
+  nix-update-script,
   stdenv,
-  suitesparse,
+
+  # nativeBuildInputs
+  doxygen,
+  cmake,
+  graphviz,
+  pkg-config,
+
+  # buildInputs
+  fmt,
+  mimalloc,
+
+  # propagatedBuildInputs
+  crocoddyl,
+  pinocchio,
+
+  # checkInputs
+  catch2_3,
+  gbenchmark,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "aligator";
-  version = "0.12.0";
+  version = "0.19.0";
 
   src = fetchFromGitHub {
     owner = "Simple-Robotics";
     repo = "aligator";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-oy2qcJbIGr5pe+XYWKntfsc6Ie7oEU1qqrPXjuqULmY=";
+    hash = "sha256-8DO+lfM4mk4bA/IOEJlLaOp9snCUBHiw7RRcYEwJC7c=";
   };
+
+  # aligator 0.19.0 expect gbenchmark 1.9.5, which is not merged yet:
+  # https://github.com/NixOS/nixpkgs/pull/506375
+  postPatch = ''
+    substituteInPlace \
+        bench/lqr.cpp \
+        bench/se2-car.cpp \
+        bench/talos-walk.cpp \
+        bench/croc-talos-arm.cpp \
+        bench/gar-riccati.cpp \
+      --replace-fail \
+        "benchmark::Benchmark" \
+        "benchmark::internal::Benchmark"
+  '';
 
   outputs = [
     "doc"
@@ -36,54 +57,39 @@ stdenv.mkDerivation (finalAttrs: {
 
   strictDeps = true;
 
-  nativeBuildInputs =
-    [
-      doxygen
-      cmake
-      graphviz
-      pkg-config
-    ]
-    ++ lib.optionals pythonSupport [
-      python3Packages.pythonImportsCheckHook
-    ];
-  buildInputs =
-    [ fmt ]
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      llvmPackages.openmp
-    ];
-  propagatedBuildInputs =
-    [ suitesparse ]
-    ++ lib.optionals pythonSupport [
-      python3Packages.crocoddyl
-      python3Packages.matplotlib
-      python3Packages.pinocchio
-      python3Packages.proxsuite-nlp
-    ]
-    ++ lib.optionals (!pythonSupport) [
-      crocoddyl
-      pinocchio
-      proxsuite-nlp
-    ];
-  checkInputs =
-    [ gbenchmark ]
-    ++ lib.optionals pythonSupport [
-      python3Packages.matplotlib
-      python3Packages.pytest
-    ];
+  nativeBuildInputs = [
+    doxygen
+    cmake
+    graphviz
+    pkg-config
+  ];
 
-  cmakeFlags =
-    [
-      (lib.cmakeBool "BUILD_PYTHON_INTERFACE" pythonSupport)
-      (lib.cmakeBool "BUILD_WITH_PINOCCHIO_SUPPORT" true)
-      (lib.cmakeBool "BUILD_CROCODDYL_COMPAT" true)
-      (lib.cmakeBool "BUILD_WITH_OPENMP_SUPPORT" true)
-      (lib.cmakeBool "BUILD_WITH_CHOLMOD_SUPPORT" true)
-      (lib.cmakeBool "GENERATE_PYTHON_STUBS" false) # this need git at configure time
-    ]
-    ++ lib.optionals (stdenv.hostPlatform.isDarwin && pythonSupport) [
-      # ignore one failing test for now
-      (lib.cmakeFeature "CMAKE_CTEST_ARGUMENTS" "--exclude-regex;aligator-test-py-rollout")
-    ];
+  buildInputs = [
+    fmt
+    mimalloc
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    llvmPackages.openmp
+  ];
+
+  propagatedBuildInputs = [
+    crocoddyl
+    pinocchio
+  ];
+
+  checkInputs = [
+    catch2_3
+    gbenchmark
+  ];
+
+  cmakeFlags = [
+    (lib.cmakeBool "BUILD_PYTHON_INTERFACE" false)
+    (lib.cmakeBool "BUILD_WITH_PINOCCHIO_SUPPORT" true)
+    (lib.cmakeBool "BUILD_CROCODDYL_COMPAT" true)
+    (lib.cmakeBool "BUILD_WITH_OPENMP_SUPPORT" true)
+    (lib.cmakeBool "BUILD_WITH_CHOLMOD_SUPPORT" true)
+    (lib.cmakeBool "GENERATE_PYTHON_STUBS" false) # this need git at configure time
+  ];
 
   # Fontconfig error: Cannot load default config file: No such file: (null)
   env.FONTCONFIG_FILE = "${fontconfig.out}/etc/fonts/fonts.conf";
@@ -97,7 +103,8 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   doCheck = true;
-  pythonImportsCheck = [ "aligator" ];
+
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Versatile and efficient framework for constrained trajectory optimization";

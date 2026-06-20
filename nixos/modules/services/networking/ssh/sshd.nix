@@ -21,11 +21,12 @@ let
     let
       # reports boolean as yes / no
       mkValueString =
-        with lib;
         v:
         if lib.isInt v then
           toString v
         else if lib.isString v then
+          v
+        else if lib.isPath v then
           v
         else if true == v then
           "yes"
@@ -42,13 +43,14 @@ let
       # values must be separated by whitespace or even commas.
       # Consult either sshd_config(5) or, as last resort, the OpehSSH source for parsing
       # the options at servconf.c:process_server_config_line_depth() to determine the right "mode"
-      # for each. But fortunaly this fact is documented for most of them in the manpage.
+      # for each. But fortunately this fact is documented for most of them in the manpage.
       commaSeparated = [
         "Ciphers"
         "KexAlgorithms"
         "Macs"
       ];
       spaceSeparated = [
+        "AcceptEnv"
         "AuthorizedKeysFile"
         "AllowGroups"
         "AllowUsers"
@@ -178,8 +180,8 @@ in
 
 {
   imports = [
-    (lib.mkAliasOptionModuleMD [ "services" "sshd" "enable" ] [ "services" "openssh" "enable" ])
-    (lib.mkAliasOptionModuleMD [ "services" "openssh" "knownHosts" ] [ "programs" "ssh" "knownHosts" ])
+    (lib.mkAliasOptionModule [ "services" "sshd" "enable" ] [ "services" "openssh" "enable" ])
+    (lib.mkAliasOptionModule [ "services" "openssh" "knownHosts" ] [ "programs" "ssh" "knownHosts" ])
     (lib.mkRenamedOptionModule
       [ "services" "openssh" "challengeResponseAuthentication" ]
       [ "services" "openssh" "kbdInteractiveAuthentication" ]
@@ -225,6 +227,11 @@ in
       [ "services" "openssh" "forwardX11" ]
       [ "services" "openssh" "settings" "X11Forwarding" ]
     )
+    (lib.mkRemovedOptionModule [
+      "services"
+      "openssh"
+      "banner"
+    ] "Use services.openssh.settings.Banner instead.")
   ];
 
   ###### interface
@@ -319,7 +326,7 @@ in
                 '';
               };
               port = lib.mkOption {
-                type = lib.types.nullOr lib.types.int;
+                type = lib.types.nullOr lib.types.port;
                 default = null;
                 description = ''
                   Port to listen to.
@@ -345,6 +352,15 @@ in
           NOTE: this will override default listening on all local addresses and port 22.
           NOTE: setting this option won't automatically enable given ports
           in firewall configuration.
+          NOTE: If the IP address is not available at boot time, the following has
+          to be added to make sure sshd will wait for dhcp configuration:
+          ```nix
+          systemd.services.sshd = {
+            wants = [ "network-online.target" ];
+            after = [ "network-online.target" ];
+          };
+          ```
+          See the following issue for details: <https://github.com/NixOS/nixpkgs/issues/105570>
         '';
       };
 
@@ -366,13 +382,11 @@ in
             type = "rsa";
             bits = 4096;
             path = "/etc/ssh/ssh_host_rsa_key";
-            rounds = 100;
             openSSHFormat = true;
           }
           {
             type = "ed25519";
             path = "/etc/ssh/ssh_host_ed25519_key";
-            rounds = 100;
             comment = "key comment";
           }
         ];
@@ -384,11 +398,26 @@ in
         '';
       };
 
-      banner = lib.mkOption {
-        type = lib.types.nullOr lib.types.lines;
-        default = null;
+      generateHostKeys = lib.mkOption {
+        type = lib.types.bool;
+        default = config.services.openssh.enable;
+        defaultText = lib.literalExpression "services.openssh.enable";
         description = ''
-          Message to display to the remote user before authentication is allowed.
+          Whether to generate SSH host keys.
+
+          This can be enabled explicitly if you want to generate host keys but
+          don't want to enable the SSH daemon.
+        '';
+        example = true;
+      };
+
+      enableRecommendedAlgorithms = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Use algorithms curated and recommended by NixOS.
+
+          Set to false to use upstream's default algorithms.
         '';
       };
 
@@ -453,12 +482,21 @@ in
           {
             freeformType = settingsFormat.type;
             options = {
+              AcceptEnv = lib.mkOption {
+                type = lib.types.nullOr (lib.types.listOf lib.types.str);
+                default = null;
+                description = ''
+                  Specifies what environment variables sent by the client will be copied into the session's
+                  environment. The TERM environment variable is always accepted whenever the client requests
+                  a pseudo-terminal as it is required by the protocol.
+                '';
+              };
               AuthorizedPrincipalsFile = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
                 default = "none"; # upstream default
                 description = ''
                   Specifies a file that lists principal names that are accepted for certificate authentication. The default
-                  is `"none"`, i.e. not to use	a principals file.
+                  is `"none"`, i.e. not to use a principals file.
                 '';
               };
               LogLevel = lib.mkOption {
@@ -487,7 +525,6 @@ in
               };
               UseDns = lib.mkOption {
                 type = lib.types.nullOr lib.types.bool;
-                # apply if cfg.useDns then "yes" else "no"
                 default = false;
                 description = ''
                   Specifies whether {manpage}`sshd(8)` should look up the remote host name, and to check that the resolved host name for
@@ -543,37 +580,64 @@ in
               };
               KexAlgorithms = lib.mkOption {
                 type = lib.types.nullOr (lib.types.listOf lib.types.str);
-                default = [
-                  "mlkem768x25519-sha256"
-                  "sntrup761x25519-sha512"
-                  "sntrup761x25519-sha512@openssh.com"
-                  "curve25519-sha256"
-                  "curve25519-sha256@libssh.org"
-                  "diffie-hellman-group-exchange-sha256"
-                ];
+                default =
+                  if config.services.openssh.enableRecommendedAlgorithms then
+                    [
+                      "mlkem768x25519-sha256"
+                      "sntrup761x25519-sha512"
+                      "sntrup761x25519-sha512@openssh.com"
+                      "curve25519-sha256"
+                      "curve25519-sha256@libssh.org"
+                      "diffie-hellman-group-exchange-sha256"
+                    ]
+                  else
+                    null;
+                defaultText = ''
+                  if config.services.openssh.enableRecommendedAlgorithms then
+                    [
+                      "mlkem768x25519-sha256"
+                      "sntrup761x25519-sha512"
+                      "sntrup761x25519-sha512@openssh.com"
+                      "curve25519-sha256"
+                      "curve25519-sha256@libssh.org"
+                      "diffie-hellman-group-exchange-sha256"
+                    ]
+                  else
+                    null;
+                '';
                 description = ''
                   Allowed key exchange algorithms
 
-                  Uses the lower bound recommended in both
-                  <https://stribika.github.io/2015/01/04/secure-secure-shell.html>
-                  and
-                  <https://infosec.mozilla.org/guidelines/openssh#modern-openssh-67>
+                  Defaults to a curated set of algorithms.
+                  Set enableRecommendedAlgorithms to false to use upstream's defaults.
                 '';
               };
               Macs = lib.mkOption {
                 type = lib.types.nullOr (lib.types.listOf lib.types.str);
-                default = [
-                  "hmac-sha2-512-etm@openssh.com"
-                  "hmac-sha2-256-etm@openssh.com"
-                  "umac-128-etm@openssh.com"
-                ];
+                default =
+                  if config.services.openssh.enableRecommendedAlgorithms then
+                    [
+                      "hmac-sha2-512-etm@openssh.com"
+                      "hmac-sha2-256-etm@openssh.com"
+                      "umac-128-etm@openssh.com"
+                    ]
+                  else
+                    null;
+                defaultText = ''
+                  if config.services.openssh.enableRecommendedAlgorithms then
+                    [
+                      "hmac-sha2-512-etm@openssh.com"
+                      "hmac-sha2-256-etm@openssh.com"
+                      "umac-128-etm@openssh.com"
+                    ]
+                  else
+                    null;
+                '';
                 description = ''
                   Allowed MACs
 
-                  Defaults to recommended settings from both
-                  <https://stribika.github.io/2015/01/04/secure-secure-shell.html>
-                  and
-                  <https://infosec.mozilla.org/guidelines/openssh#modern-openssh-67>
+                  Defaults to a curated set of algorithms.
+                  Set enableRecommendedAlgorithms to false to use upstream's defaults.
                 '';
               };
               StrictModes = lib.mkOption {
@@ -585,21 +649,36 @@ in
               };
               Ciphers = lib.mkOption {
                 type = lib.types.nullOr (lib.types.listOf lib.types.str);
-                default = [
-                  "chacha20-poly1305@openssh.com"
-                  "aes256-gcm@openssh.com"
-                  "aes128-gcm@openssh.com"
-                  "aes256-ctr"
-                  "aes192-ctr"
-                  "aes128-ctr"
-                ];
+                default =
+                  if config.services.openssh.enableRecommendedAlgorithms then
+                    [
+                      "chacha20-poly1305@openssh.com"
+                      "aes256-gcm@openssh.com"
+                      "aes128-gcm@openssh.com"
+                      "aes256-ctr"
+                      "aes192-ctr"
+                      "aes128-ctr"
+                    ]
+                  else
+                    null;
+                defaultText = ''
+                  if config.services.openssh.enableRecommendedAlgorithms then
+                    [
+                      "chacha20-poly1305@openssh.com"
+                      "aes256-gcm@openssh.com"
+                      "aes128-gcm@openssh.com"
+                      "aes256-ctr"
+                      "aes192-ctr"
+                      "aes128-ctr"
+                    ]
+                  else
+                    null;
+                '';
                 description = ''
                   Allowed ciphers
 
-                  Defaults to recommended settings from both
-                  <https://stribika.github.io/2015/01/04/secure-secure-shell.html>
-                  and
-                  <https://infosec.mozilla.org/guidelines/openssh#modern-openssh-67>
+                  Defaults to a curated set of algorithms.
+                  Set enableRecommendedAlgorithms to false to use upstream's defaults.
                 '';
               };
               AllowUsers = lib.mkOption {
@@ -642,6 +721,14 @@ in
               PrintMotd = lib.mkEnableOption "printing /etc/motd when a user logs in interactively" // {
                 type = lib.types.nullOr lib.types.bool;
               };
+              Banner = lib.mkOption {
+                type = lib.types.nullOr lib.types.path;
+                default = null;
+                description = ''
+                  The file whose contents are sent to the remote user before authentication.
+                '';
+                example = "/etc/ssh/banner";
+              };
             };
           }
         );
@@ -673,197 +760,181 @@ in
 
   ###### implementation
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkMerge [
+    (lib.mkIf cfg.enable {
 
-    users.users.sshd = {
-      isSystemUser = true;
-      group = "sshd";
-      description = "SSH privilege separation user";
-    };
-    users.groups.sshd = { };
+      users.users.sshd = {
+        isSystemUser = true;
+        group = "sshd";
+        description = "SSH privilege separation user";
+      };
+      users.groups.sshd = { };
 
-    services.openssh.moduliFile = lib.mkDefault "${cfg.package}/etc/ssh/moduli";
-    services.openssh.sftpServerExecutable = lib.mkDefault "${cfg.package}/libexec/sftp-server";
+      services.openssh.moduliFile = lib.mkDefault "${cfg.package}/etc/ssh/moduli";
+      services.openssh.sftpServerExecutable = lib.mkDefault "${cfg.package}/libexec/sftp-server";
 
-    environment.etc =
-      authKeysFiles
-      // authPrincipalsFiles
-      // {
-        "ssh/moduli".source = cfg.moduliFile;
-        "ssh/sshd_config".source = sshconf;
+      environment.etc =
+        authKeysFiles
+        // authPrincipalsFiles
+        // {
+          "ssh/moduli".source = cfg.moduliFile;
+          "ssh/sshd_config".source = sshconf;
+        };
+
+      systemd.tmpfiles.settings."ssh-root-provision" = {
+        "/root"."d-" = {
+          user = "root";
+          group = ":root";
+          mode = ":700";
+        };
+        "/root/.ssh"."d-" = {
+          user = "root";
+          group = ":root";
+          mode = ":700";
+        };
+        "/root/.ssh/authorized_keys"."f^" = {
+          user = "root";
+          group = ":root";
+          mode = ":600";
+          argument = "ssh.authorized_keys.root";
+        };
       };
 
-    systemd =
-      let
-        service = {
-          description = "SSH Daemon";
-          wantedBy = lib.optional (!cfg.startWhenNeeded) "multi-user.target";
-          after = [ "network.target" ];
-          stopIfChanged = false;
-          path = [
-            cfg.package
-            pkgs.gawk
+      systemd = {
+        generatorPath = [ cfg.package ];
+
+        sockets.sshd = lib.mkIf cfg.startWhenNeeded {
+          description = "SSH Socket";
+          wantedBy = [ "sockets.target" ];
+          socketConfig.ListenStream =
+            if cfg.listenAddresses != [ ] then
+              lib.concatMap (
+                { addr, port }:
+                if port != null then [ "${addr}:${toString port}" ] else map (p: "${addr}:${toString p}") cfg.ports
+              ) cfg.listenAddresses
+            else
+              cfg.ports;
+          socketConfig.Accept = true;
+          # Prevent brute-force attacks from shutting down socket
+          socketConfig.TriggerLimitIntervalSec = 0;
+        };
+
+        services."sshd@" = {
+          description = "SSH per-connection Daemon";
+          after = [
+            "network.target"
+            "sshd-keygen.service"
           ];
+          wants = lib.mkIf cfg.generateHostKeys [ "sshd-keygen.service" ];
+          stopIfChanged = false;
+          path = [ cfg.package ];
           environment.LD_LIBRARY_PATH = nssModulesPath;
 
-          restartTriggers = lib.optionals (!cfg.startWhenNeeded) [
-            config.environment.etc."ssh/sshd_config".source
-          ];
-
-          preStart = ''
-            # Make sure we don't write to stdout, since in case of
-            # socket activation, it goes to the remote side (#19589).
-            exec >&2
-
-            ${lib.flip lib.concatMapStrings cfg.hostKeys (k: ''
-              if ! [ -s "${k.path}" ]; then
-                  if ! [ -h "${k.path}" ]; then
-                      rm -f "${k.path}"
-                  fi
-                  mkdir -p "$(dirname '${k.path}')"
-                  chmod 0755 "$(dirname '${k.path}')"
-                  ssh-keygen \
-                    -t "${k.type}" \
-                    ${lib.optionalString (k ? bits) "-b ${toString k.bits}"} \
-                    ${lib.optionalString (k ? rounds) "-a ${toString k.rounds}"} \
-                    ${lib.optionalString (k ? comment) "-C '${k.comment}'"} \
-                    ${lib.optionalString (k ? openSSHFormat && k.openSSHFormat) "-o"} \
-                    -f "${k.path}" \
-                    -N ""
-              fi
-            '')}
-          '';
-
-          serviceConfig =
-            {
-              ExecStart =
-                (lib.optionalString cfg.startWhenNeeded "-")
-                + "${cfg.package}/bin/sshd "
-                + (lib.optionalString cfg.startWhenNeeded "-i ")
-                + "-D "
-                # don't detach into a daemon process
-                + "-f /etc/ssh/sshd_config";
-              KillMode = "process";
-            }
-            // (
-              if cfg.startWhenNeeded then
-                {
-                  StandardInput = "socket";
-                  StandardError = "journal";
-                }
-              else
-                {
-                  Restart = "always";
-                  Type = "simple";
-                }
-            );
-
-        };
-      in
-
-      if cfg.startWhenNeeded then
-        {
-
-          sockets.sshd = {
-            description = "SSH Socket";
-            wantedBy = [ "sockets.target" ];
-            socketConfig.ListenStream =
-              if cfg.listenAddresses != [ ] then
-                lib.concatMap (
-                  { addr, port }:
-                  if port != null then [ "${addr}:${toString port}" ] else map (p: "${addr}:${toString p}") cfg.ports
-                ) cfg.listenAddresses
-              else
-                cfg.ports;
-            socketConfig.Accept = true;
-            # Prevent brute-force attacks from shutting down socket
-            socketConfig.TriggerLimitIntervalSec = 0;
+          serviceConfig = {
+            ExecStart = lib.concatStringsSep " " [
+              "-${lib.getExe' cfg.package "sshd"}"
+              "-i"
+              "-D"
+              "-f /etc/ssh/sshd_config"
+            ];
+            KillMode = "process";
+            StandardInput = "socket";
+            StandardError = "journal";
           };
-
-          services."sshd@" = service;
-
-        }
-      else
-        {
-
-          services.sshd = service;
-
         };
 
-    networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall cfg.ports;
+        services.sshd = lib.mkIf (!cfg.startWhenNeeded) {
+          description = "SSH Daemon";
+          wantedBy = [ "multi-user.target" ];
+          after = [
+            "network.target"
+            "sshd-keygen.service"
+          ];
+          wants = lib.mkIf cfg.generateHostKeys [ "sshd-keygen.service" ];
+          stopIfChanged = false;
+          path = [ cfg.package ];
+          environment.LD_LIBRARY_PATH = nssModulesPath;
 
-    security.pam.services.sshd = lib.mkIf cfg.settings.UsePAM {
-      startSession = true;
-      showMotd = true;
-      unixAuth = if cfg.settings.PasswordAuthentication == true then true else false;
-    };
+          restartTriggers = [ config.environment.etc."ssh/sshd_config".source ];
 
-    # These values are merged with the ones defined externally, see:
-    # https://github.com/NixOS/nixpkgs/pull/10155
-    # https://github.com/NixOS/nixpkgs/pull/41745
-    services.openssh.authorizedKeysFiles =
-      lib.optional cfg.authorizedKeysInHomedir "%h/.ssh/authorized_keys"
-      ++ [ "/etc/ssh/authorized_keys.d/%u" ];
+          serviceConfig = {
+            Type = "notify-reload";
+            Restart = "always";
+            ExecStart = lib.concatStringsSep " " [
+              (lib.getExe' cfg.package "sshd")
+              "-D"
+              "-f"
+              "/etc/ssh/sshd_config"
+            ];
+            KillMode = "process";
+          };
+        };
+      };
 
-    services.openssh.settings.AuthorizedPrincipalsFile = lib.mkIf (
-      authPrincipalsFiles != { }
-    ) "/etc/ssh/authorized_principals.d/%u";
+      networking.firewall.allowedTCPPorts = lib.optionals cfg.openFirewall cfg.ports;
 
-    services.openssh.extraConfig = lib.mkOrder 0 ''
-      Banner ${if cfg.banner == null then "none" else pkgs.writeText "ssh_banner" cfg.banner}
+      security.pam.services.sshd = lib.mkIf (cfg.settings.UsePAM == true) {
+        startSession = true;
+        showMotd = true;
+        unixAuth = if cfg.settings.PasswordAuthentication == true then true else false;
+      };
 
-      AddressFamily ${if config.networking.enableIPv6 then "any" else "inet"}
-      ${lib.concatMapStrings (port: ''
-        Port ${toString port}
-      '') cfg.ports}
+      # These values are merged with the ones defined externally, see:
+      # https://github.com/NixOS/nixpkgs/pull/10155
+      # https://github.com/NixOS/nixpkgs/pull/41745
+      services.openssh.authorizedKeysFiles =
+        lib.optional cfg.authorizedKeysInHomedir "%h/.ssh/authorized_keys"
+        ++ [ "/etc/ssh/authorized_keys.d/%u" ];
 
-      ${lib.concatMapStrings (
-        { port, addr, ... }:
-        ''
-          ListenAddress ${addr}${lib.optionalString (port != null) (":" + toString port)}
-        ''
-      ) cfg.listenAddresses}
+      services.openssh.settings.AuthorizedPrincipalsFile = lib.mkIf (
+        authPrincipalsFiles != { }
+      ) "/etc/ssh/authorized_principals.d/%u";
 
-      ${lib.optionalString cfgc.setXAuthLocation ''
-        XAuthLocation ${pkgs.xorg.xauth}/bin/xauth
-      ''}
-      ${lib.optionalString cfg.allowSFTP ''
-        Subsystem sftp ${cfg.sftpServerExecutable} ${lib.concatStringsSep " " cfg.sftpFlags}
-      ''}
-      AuthorizedKeysFile ${toString cfg.authorizedKeysFiles}
-      ${lib.optionalString (cfg.authorizedKeysCommand != "none") ''
-        AuthorizedKeysCommand ${cfg.authorizedKeysCommand}
-        AuthorizedKeysCommandUser ${cfg.authorizedKeysCommandUser}
-      ''}
+      services.openssh.extraConfig = lib.mkOrder 0 (
+        lib.concatStringsSep "\n" (
+          [
+            "AddressFamily ${if config.networking.enableIPv6 then "any" else "inet"}"
+          ]
+          ++ lib.map (port: "Port ${toString port}") cfg.ports
+          ++ lib.map (
+            { port, addr, ... }:
+            "ListenAddress ${addr}${lib.optionalString (port != null) (":" + toString port)}"
+          ) cfg.listenAddresses
+          ++ lib.optional cfgc.setXAuthLocation "XAuthLocation ${lib.getExe pkgs.xauth}"
+          ++ lib.optional cfg.allowSFTP "Subsystem sftp ${cfg.sftpServerExecutable} ${lib.concatStringsSep " " cfg.sftpFlags}"
+          ++ [
+            "AuthorizedKeysFile ${toString cfg.authorizedKeysFiles}"
+          ]
+          ++ lib.optional (cfg.authorizedKeysCommand != "none") ''
+            AuthorizedKeysCommand ${cfg.authorizedKeysCommand}
+            AuthorizedKeysCommandUser ${cfg.authorizedKeysCommandUser}
+          ''
+          ++ lib.map (k: "HostKey ${k.path}") cfg.hostKeys
+        )
+      );
 
-      ${lib.flip lib.concatMapStrings cfg.hostKeys (k: ''
-        HostKey ${k.path}
-      '')}
-    '';
+      system.checks = [
+        (pkgs.runCommand "check-sshd-config"
+          {
+            nativeBuildInputs = [ validationPackage.out ];
+          }
+          ''
+            ${lib.concatMapStringsSep "\n" (
+              lport: "sshd -G -T -C lport=${toString lport} -f ${sshconf} > /dev/null"
+            ) cfg.ports}
+            ${lib.concatMapStringsSep "\n" (
+              la:
+              lib.concatMapStringsSep "\n" (
+                port:
+                "sshd -G -T -C ${lib.escapeShellArg "laddr=${la.addr},lport=${toString port}"} -f ${sshconf} > /dev/null"
+              ) (if la.port != null then [ la.port ] else cfg.ports)
+            ) cfg.listenAddresses}
+            touch $out
+          ''
+        )
+      ];
 
-    system.checks = [
-      (pkgs.runCommand "check-sshd-config"
-        {
-          nativeBuildInputs = [ validationPackage ];
-        }
-        ''
-          ${lib.concatMapStringsSep "\n" (
-            lport: "sshd -G -T -C lport=${toString lport} -f ${sshconf} > /dev/null"
-          ) cfg.ports}
-          ${lib.concatMapStringsSep "\n" (
-            la:
-            lib.concatMapStringsSep "\n" (
-              port:
-              "sshd -G -T -C ${lib.escapeShellArg "laddr=${la.addr},lport=${toString port}"} -f ${sshconf} > /dev/null"
-            ) (if la.port != null then [ la.port ] else cfg.ports)
-          ) cfg.listenAddresses}
-          touch $out
-        ''
-      )
-    ];
-
-    assertions =
-      [
+      assertions = [
         {
           assertion = if cfg.settings.X11Forwarding then cfgc.setXAuthLocation else true;
           message = "cannot enable X11 forwarding without setting xauth location";
@@ -899,7 +970,7 @@ in
           in
           {
             assertion = lib.length duplicates == 0;
-            message = ''Duplicate sshd config key; does your capitalization match the option's? Duplicate keys: ${formattedDuplicates}'';
+            message = "Duplicate sshd config key; does your capitalization match the option's? Duplicate keys: ${formattedDuplicates}";
           }
         )
       ]
@@ -910,6 +981,37 @@ in
           message = "addr must be specified in each listenAddresses entry";
         }
       );
-  };
+    })
+
+    (lib.mkIf cfg.generateHostKeys {
+      systemd.services.sshd-keygen = {
+        description = "SSH Host Keys Generation";
+        wantedBy = [ "multi-user.target" ];
+        unitConfig = {
+          ConditionFileNotEmpty = map (k: "|!${k.path}") cfg.hostKeys;
+        };
+        serviceConfig = {
+          Type = "oneshot";
+        };
+        path = [ cfg.package ];
+        script = lib.flip lib.concatMapStrings cfg.hostKeys (k: ''
+          if ! [ -s "${k.path}" ]; then
+              if ! [ -h "${k.path}" ]; then
+                  rm -f "${k.path}"
+              fi
+              mkdir -p "$(dirname '${k.path}')"
+              chmod 0755 "$(dirname '${k.path}')"
+              ssh-keygen \
+                -t "${k.type}" \
+                ${lib.optionalString (k ? bits) "-b ${toString k.bits}"} \
+                ${lib.optionalString (k ? comment) "-C '${k.comment}'"} \
+                ${lib.optionalString (k ? openSSHFormat && k.openSSHFormat) "-o"} \
+                -f "${k.path}" \
+                -N ""
+          fi
+        '');
+      };
+    })
+  ];
 
 }

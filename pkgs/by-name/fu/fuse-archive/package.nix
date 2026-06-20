@@ -2,38 +2,37 @@
   lib,
   stdenv,
   fetchFromGitHub,
-  fuse,
+  fuse3,
   libarchive,
   pkg-config,
   boost,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "fuse-archive";
-  version = "1.10";
+  version = "1.22";
 
   src = fetchFromGitHub {
     owner = "google";
     repo = "fuse-archive";
-    tag = "v${version}";
-    hash = "sha256-Fta/IYKWsB4ZuPOWtGO6p6l03eoRXaO0lIGaCU3SRag=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-uE+22ONNnPqAi8zBV0v3qu3um2gNoX4/jNUA7E+UQOE=";
   };
 
-  postPatch =
-    ''
-      substituteInPlace Makefile \
-        --replace-fail "/usr" "$out"
-    ''
-    + lib.optionalString stdenv.hostPlatform.isDarwin ''
-      substituteInPlace src/main.cc \
-        --replace-fail "!defined(__OpenBSD__)" "!defined(__OpenBSD__) && !defined(__APPLE__)" \
-        --replace-fail " | O_PATH" ""
-    '';
+  postPatch = ''
+    substituteInPlace Makefile \
+      --replace-fail "/usr" "$out"
+  ''
+  + lib.optionalString stdenv.hostPlatform.isDarwin ''
+    substituteInPlace src/main.cc \
+      --replace-fail "!defined(__OpenBSD__)" "!defined(__OpenBSD__) && !defined(__APPLE__)" \
+      --replace-fail " | O_PATH" ""
+  '';
 
   nativeBuildInputs = [ pkg-config ];
 
   buildInputs = [
-    fuse
+    fuse3
     libarchive
     boost
   ];
@@ -43,12 +42,12 @@ stdenv.mkDerivation rec {
   makeFlags = [ "prefix=${placeholder "out"}" ];
 
   meta = {
-    inherit (fuse.meta) platforms;
+    inherit (fuse3.meta) platforms;
     description = "Serve an archive or a compressed file as a read-only FUSE file system";
     homepage = "https://github.com/google/fuse-archive";
-    changelog = "https://github.com/google/fuse-archive/releases/tag/v${version}";
+    changelog = "https://github.com/google/fuse-archive/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [ icyrockcom ];
     mainProgram = "fuse-archive";
   };
-}
+})

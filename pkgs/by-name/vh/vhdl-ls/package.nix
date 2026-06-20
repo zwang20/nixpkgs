@@ -4,19 +4,18 @@
   fetchFromGitHub,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "vhdl-ls";
-  version = "0.84.0";
+  version = "0.87.1";
 
   src = fetchFromGitHub {
     owner = "VHDL-LS";
     repo = "rust_hdl";
-    rev = "v${version}";
-    hash = "sha256-MzlsZoV09QeerpbE/Nmu5tMIvgscu84fk2bYlWn7bjg=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-+7kjRjRtsb038xw0x+yojhWVChvkBz6kTlqSc3rTwXE=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-nKA38HbFFYRGd48VGqd7SHMY8fvTLE8to3iturKgWqM=";
+  cargoHash = "sha256-NAi/YY6bu/yHHPWfgv5fimS3Ac4PL12T/U1Jknj/Zc8=";
 
   postPatch = ''
     substituteInPlace vhdl_lang/src/config.rs \
@@ -35,4 +34,4 @@ rustPlatform.buildRustPackage rec {
     mainProgram = "vhdl_ls";
     maintainers = with lib.maintainers; [ doronbehar ];
   };
-}
+})

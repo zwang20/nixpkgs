@@ -7,7 +7,7 @@
   pkg-config,
   freetype,
   yasm,
-  ffmpeg,
+  ffmpeg_7,
   aalibSupport ? true,
   aalib,
   fontconfigSupport ? true,
@@ -16,18 +16,18 @@
   fribidiSupport ? true,
   fribidi,
   x11Support ? true,
-  libX11,
-  libXext,
+  libx11,
+  libxext,
   libGLU,
   libGL,
   xineramaSupport ? true,
-  libXinerama,
+  libxinerama,
   xvSupport ? true,
-  libXv,
+  libxv,
   alsaSupport ? stdenv.hostPlatform.isLinux,
   alsa-lib,
   screenSaverSupport ? true,
-  libXScrnSaver,
+  libxscrnsaver,
   vdpauSupport ? false,
   libvdpau,
   cddaSupport ? !stdenv.hostPlatform.isDarwin,
@@ -65,8 +65,8 @@
   libjpegSupport ? true,
   libjpeg,
   useUnfreeCodecs ? false,
-  darwin,
   buildPackages,
+  versionCheckHook,
 }:
 
 assert xineramaSupport -> x11Support;
@@ -118,7 +118,7 @@ let
 
 in
 
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "mplayer";
   version = "1.5-unstable-2024-12-21";
 
@@ -129,6 +129,7 @@ stdenv.mkDerivation {
   };
 
   prePatch = ''
+    echo "${finalAttrs.version}" > VERSION
     sed -i /^_install_strip/d configure
 
     rm -rf ffmpeg
@@ -138,96 +139,98 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     pkg-config
     yasm
+  ]
+  ++ lib.optionals cacaSupport [
+    libcaca # caca-config
   ];
-  buildInputs =
-    [
-      freetype
-      ffmpeg
-    ]
-    ++ lib.optional aalibSupport aalib
-    ++ lib.optional fontconfigSupport fontconfig
-    ++ lib.optional fribidiSupport fribidi
-    ++ lib.optionals x11Support [
-      libX11
-      libXext
-      libGLU
-      libGL
-    ]
-    ++ lib.optional alsaSupport alsa-lib
-    ++ lib.optional xvSupport libXv
-    ++ lib.optional theoraSupport libtheora
-    ++ lib.optional cacaSupport libcaca
-    ++ lib.optional xineramaSupport libXinerama
-    ++ lib.optional dvdnavSupport libdvdnav
-    ++ lib.optional dvdreadSupport libdvdread
-    ++ lib.optional bluraySupport libbluray
-    ++ lib.optional cddaSupport cdparanoia
-    ++ lib.optional jackaudioSupport libjack2
-    ++ lib.optionals amrSupport [
-      amrnb
-      amrwb
-    ]
-    ++ lib.optional x264Support x264
-    ++ lib.optional pulseSupport libpulseaudio
-    ++ lib.optional screenSaverSupport libXScrnSaver
-    ++ lib.optional lameSupport lame
-    ++ lib.optional vdpauSupport libvdpau
-    ++ lib.optional speexSupport speex
-    ++ lib.optional libpngSupport libpng
-    ++ lib.optional libjpegSupport libjpeg
-    ++ lib.optional bs2bSupport libbs2b
-    ++ lib.optional v4lSupport libv4l
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      darwin.apple_sdk.frameworks.Cocoa
-      darwin.apple_sdk.frameworks.OpenGL
-    ];
+  buildInputs = [
+    freetype
+    ffmpeg_7
+  ]
+  ++ lib.optional aalibSupport aalib
+  ++ lib.optional fontconfigSupport fontconfig
+  ++ lib.optional fribidiSupport fribidi
+  ++ lib.optionals x11Support [
+    libx11
+    libxext
+    libGLU
+    libGL
+  ]
+  ++ lib.optional alsaSupport alsa-lib
+  ++ lib.optional xvSupport libxv
+  ++ lib.optional theoraSupport libtheora
+  ++ lib.optional cacaSupport libcaca
+  ++ lib.optional xineramaSupport libxinerama
+  ++ lib.optional dvdnavSupport libdvdnav
+  ++ lib.optional dvdreadSupport libdvdread
+  ++ lib.optional bluraySupport libbluray
+  ++ lib.optional cddaSupport cdparanoia
+  ++ lib.optional jackaudioSupport libjack2
+  ++ lib.optionals amrSupport [
+    amrnb
+    amrwb
+  ]
+  ++ lib.optional x264Support x264
+  ++ lib.optional pulseSupport libpulseaudio
+  ++ lib.optional screenSaverSupport libxscrnsaver
+  ++ lib.optional lameSupport lame
+  ++ lib.optional vdpauSupport libvdpau
+  ++ lib.optional speexSupport speex
+  ++ lib.optional libpngSupport libpng
+  ++ lib.optional libjpegSupport libjpeg
+  ++ lib.optional bs2bSupport libbs2b
+  ++ lib.optional v4lSupport libv4l;
+
+  strictDeps = true;
 
   configurePlatforms = [ ];
-  configureFlags =
-    [
-      "--enable-freetype"
-      (if fontconfigSupport then "--enable-fontconfig" else "--disable-fontconfig")
-      (if x11Support then "--enable-x11 --enable-gl" else "--disable-x11 --disable-gl")
-      (if xineramaSupport then "--enable-xinerama" else "--disable-xinerama")
-      (if xvSupport then "--enable-xv" else "--disable-xv")
-      (if alsaSupport then "--enable-alsa" else "--disable-alsa")
-      (if screenSaverSupport then "--enable-xss" else "--disable-xss")
-      (if vdpauSupport then "--enable-vdpau" else "--disable-vdpau")
-      (if cddaSupport then "--enable-cdparanoia" else "--disable-cdparanoia")
-      (if dvdnavSupport then "--enable-dvdnav" else "--disable-dvdnav")
-      (if bluraySupport then "--enable-bluray" else "--disable-bluray")
-      (if amrSupport then "--enable-libopencore_amrnb" else "--disable-libopencore_amrnb")
-      (if cacaSupport then "--enable-caca" else "--disable-caca")
-      (
-        if lameSupport then
-          "--enable-mp3lame --disable-mp3lame-lavc"
-        else
-          "--disable-mp3lame --enable-mp3lame-lavc"
-      )
-      (if speexSupport then "--enable-speex" else "--disable-speex")
-      (if theoraSupport then "--enable-theora" else "--disable-theora")
-      (if x264Support then "--enable-x264 --disable-x264-lavc" else "--disable-x264 --enable-x264-lavc")
-      (if jackaudioSupport then "" else "--disable-jack")
-      (if pulseSupport then "--enable-pulse" else "--disable-pulse")
-      (if v4lSupport then "--enable-v4l2 --enable-tv-v4l2" else "--disable-v4l2 --disable-tv-v4l2")
-      "--disable-xanim"
-      "--disable-xvid --disable-xvid-lavc"
-      "--disable-ossaudio"
-      "--disable-ffmpeg_a"
-      "--yasm=${buildPackages.yasm}/bin/yasm"
-      # Note, the `target` vs `host` confusion is intentional.
-      "--target=${stdenv.hostPlatform.config}"
-    ]
-    ++ lib.optional (useUnfreeCodecs && codecs != null && !crossBuild) "--codecsdir=${codecs}"
-    ++ lib.optional (stdenv.hostPlatform.isx86 && !crossBuild) "--enable-runtime-cpudetection"
-    ++ lib.optional fribidiSupport "--enable-fribidi"
-    ++ lib.optional (stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAarch64) "--enable-vidix"
-    ++ lib.optional stdenv.hostPlatform.isLinux "--enable-fbdev"
-    ++ lib.optionals (crossBuild) [
-      "--enable-cross-compile"
-      "--disable-vidix-pcidb"
-      "--with-vidix-drivers=no"
-    ];
+  configureFlags = [
+    (lib.enableFeature true "freetype")
+    (lib.enableFeature fontconfigSupport "fontconfig")
+    (lib.enableFeature x11Support "x11")
+    (lib.enableFeature x11Support "gl")
+    (lib.enableFeature xineramaSupport "xinerama")
+    (lib.enableFeature xvSupport "xv")
+    (lib.enableFeature alsaSupport "alsa")
+    (lib.enableFeature screenSaverSupport "xss")
+    (lib.enableFeature vdpauSupport "vdpau")
+    (lib.enableFeature cddaSupport "cdparanoia")
+    (lib.enableFeature dvdnavSupport "dvdnav")
+    (lib.enableFeature bluraySupport "bluray")
+    (lib.enableFeature amrSupport "libopencore_amrnb")
+    (lib.enableFeature cacaSupport "caca")
+    (lib.enableFeature lameSupport "mp3lame")
+    (lib.enableFeature (!lameSupport) "mp3lame-lavc")
+    (lib.enableFeature speexSupport "speex")
+    (lib.enableFeature theoraSupport "theora")
+    (lib.enableFeature x264Support "x264")
+    (lib.enableFeature (!x264Support) "x264-lavc")
+    (lib.enableFeature pulseSupport "pulse")
+    (lib.enableFeature v4lSupport "v4l2")
+    (lib.enableFeature v4lSupport "tv-v4l2")
+    (lib.enableFeature v4lSupport "radio")
+    (lib.enableFeature v4lSupport "radio-v4l2")
+    (lib.enableFeature v4lSupport "radio-capture")
+    (lib.enableFeature false "xanim")
+    (lib.enableFeature false "xvid")
+    (lib.enableFeature false "xvid-lavc")
+    (lib.enableFeature false "ossaudio")
+    (lib.enableFeature false "ffmpeg_a")
+    "--yasm=${buildPackages.yasm}/bin/yasm"
+    # Note, the `target` vs `host` confusion is intentional.
+    "--target=${stdenv.hostPlatform.config}"
+  ]
+  ++ lib.optional (!jackaudioSupport) "--disable-jack"
+  ++ lib.optional (useUnfreeCodecs && codecs != null && !crossBuild) "--codecsdir=${codecs}"
+  ++ lib.optional (stdenv.hostPlatform.isx86 && !crossBuild) "--enable-runtime-cpudetection"
+  ++ lib.optional fribidiSupport "--enable-fribidi"
+  ++ lib.optional (stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAarch64) "--enable-vidix"
+  ++ lib.optional stdenv.hostPlatform.isLinux "--enable-fbdev"
+  ++ lib.optionals crossBuild [
+    "--enable-cross-compile"
+    "--disable-vidix-pcidb"
+    "--with-vidix-drivers=no"
+  ];
 
   preConfigure = ''
     configureFlagsArray+=(
@@ -245,19 +248,29 @@ stdenv.mkDerivation {
     echo CONFIG_MPEGAUDIODSP=yes >> config.mak
   '';
 
-  # Fixes compilation with newer versions of clang that make these warnings errors by default.
-  NIX_CFLAGS_COMPILE = lib.optionalString stdenv.cc.isClang "-Wno-int-conversion -Wno-incompatible-function-pointer-types";
-
-  NIX_LDFLAGS = toString (
-    lib.optional fontconfigSupport "-lfontconfig"
-    ++ lib.optional fribidiSupport "-lfribidi"
-    ++ lib.optionals x11Support [
-      "-lX11"
-      "-lXext"
-    ]
-    ++ lib.optional x264Support "-lx264"
-    ++ [ "-lfreetype" ]
-  );
+  env =
+    lib.optionalAttrs stdenv.cc.isClang {
+      # Fixes compilation with newer versions of clang that make these warnings errors by default.
+      NIX_CFLAGS_COMPILE = "-Wno-int-conversion -Wno-incompatible-function-pointer-types";
+    }
+    // {
+      NIX_LDFLAGS = toString (
+        lib.optionals fontconfigSupport [
+          "-lfontconfig"
+        ]
+        ++ lib.optionals fribidiSupport [
+          "-lfribidi"
+        ]
+        ++ lib.optionals x11Support [
+          "-lX11"
+          "-lXext"
+        ]
+        ++ lib.optionals x264Support [
+          "-lx264"
+        ]
+        ++ [ "-lfreetype" ]
+      );
+    };
 
   installTargets = [ "install" ] ++ lib.optional x11Support "install-gui";
 
@@ -272,12 +285,18 @@ stdenv.mkDerivation {
     fi
   '';
 
-  meta = with lib; {
+  nativeInstallCheckInputs = [ versionCheckHook ];
+  versionCheckProgramArg = "--help";
+  doInstallCheck = true;
+
+  __structuredAttrs = true;
+
+  meta = {
     description = "Movie player that supports many video formats";
     homepage = "http://mplayerhq.hu";
-    license = licenses.gpl2Only;
+    license = lib.licenses.gpl2Only;
     # Picking it up: no idea about the origin of some choices (but seems fine)
-    maintainers = [ maintainers.raskin ];
+    maintainers = [ lib.maintainers.raskin ];
     platforms = [
       "i686-linux"
       "x86_64-linux"
@@ -286,4 +305,4 @@ stdenv.mkDerivation {
       "aarch64-linux"
     ];
   };
-}
+})

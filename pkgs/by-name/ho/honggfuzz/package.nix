@@ -9,17 +9,18 @@
   libopcodes,
   libunwind,
   libblocksruntime,
+  unstableGitUpdater,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "honggfuzz";
-  version = "2.6";
+  version = "2.6-unstable-2026-04-13";
 
   src = fetchFromGitHub {
     owner = "google";
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-/ra6g0qjjC8Lo8/n2XEbwnZ95yDHcGhYd5+TTvQ6FAc=";
+    repo = "honggfuzz";
+    rev = "48790f7b18f30ba4a95272ea290b720662ed56c9";
+    hash = "sha256-RHNOZF5ttqdh3daGGVRHkvL9g2aZFDGDmmW056ohI6w=";
   };
 
   postPatch = ''
@@ -57,8 +58,12 @@ stdenv.mkDerivation rec {
     cp libhfnetdriver/libhfnetdriver.a $out/lib
   '';
 
+  passthru.updateScript = unstableGitUpdater {
+    tagFormat = "[0-9]*";
+  };
+
   meta = {
-    description = "A security oriented, feedback-driven, evolutionary, easy-to-use fuzzer";
+    description = "Security oriented, feedback-driven, evolutionary, easy-to-use fuzzer";
     longDescription = ''
       Honggfuzz is a security oriented, feedback-driven, evolutionary,
       easy-to-use fuzzer with interesting analysis options. It is
@@ -80,4 +85,4 @@ stdenv.mkDerivation rec {
       chivay
     ];
   };
-}
+})

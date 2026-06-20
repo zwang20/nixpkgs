@@ -2,41 +2,40 @@
   lib,
   buildGoModule,
   fetchFromGitHub,
-  stdenv,
+  libpcap,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "nexttrace";
-  version = "1.3.5";
+  version = "1.7.0";
 
   src = fetchFromGitHub {
     owner = "nxtrace";
     repo = "NTrace-core";
-    rev = "v${version}";
-    sha256 = "sha256-32QFgmvXQ+8ix1N9I6pJaIJGWOT67/FG0VVEhftwQQw=";
+    rev = "v${finalAttrs.version}";
+    sha256 = "sha256-5J0P+HlfSt6wd/q7L/+6h7auQQBJkaA1NO053w32S8Y=";
   };
-  vendorHash = "sha256-WRH9doQavcdH1sd2fS8QoFSmlirBMZgSzB/sj1q6cUQ=";
+  vendorHash = "sha256-9g0OZczhIhM96eYFyAMxajpIkRgNUkn6QUZtl3O/xSM=";
+
+  buildInputs = [ libpcap ];
 
   doCheck = false; # Tests require a network connection.
 
   ldflags = [
     "-s"
     "-w"
-    "-X github.com/nxtrace/NTrace-core/config.Version=v${version}"
+    "-X github.com/nxtrace/NTrace-core/config.Version=v${finalAttrs.version}"
   ];
 
   postInstall = ''
     mv $out/bin/NTrace-core $out/bin/nexttrace
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Open source visual route tracking CLI tool";
-    homepage = "https://mtr.moe";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ sharzy ];
+    homepage = "https://www.nxtrace.org/";
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ sharzy ];
     mainProgram = "nexttrace";
-    # Broken on darwin for Go toolchain > 1.22, with error:
-    # 'link: github.com/nxtrace/NTrace-core/trace/internal: invalid reference to net.internetSocket'
-    broken = stdenv.hostPlatform.isDarwin;
   };
-}
+})

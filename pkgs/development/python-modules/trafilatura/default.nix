@@ -1,40 +1,51 @@
 {
   lib,
   buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+
+  # dependencies
   certifi,
   charset-normalizer,
   courlan,
-  fetchPypi,
   htmldate,
   justext,
   lxml,
-  pytestCheckHook,
-  pythonOlder,
-  setuptools,
   urllib3,
+
+  # tests
+  pytestCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "trafilatura";
-  version = "2.0.0";
+  version = "2.1.0";
   pyproject = true;
+  __structuredAttrs = true;
 
-  disabled = pythonOlder "3.9";
-
-  src = fetchPypi {
-    inherit pname version;
-    hash = "sha256-zrcJSm7Ml+cv6nPH26NnFMXFtXe2Rw5FINyok3BtYkc=";
+  src = fetchFromGitHub {
+    owner = "adbar";
+    repo = "trafilatura";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-hSeJH+8JX8QC3zHMZ3+M2H0C3xI+BCvLnSo/Ih1wUQw=";
   };
 
-  postPatch = ''
+  postPatch =
     # nixify path to the trafilatura binary in the test suite
-    substituteInPlace tests/cli_tests.py \
-      --replace-fail 'trafilatura_bin = "trafilatura"' \
-                     'trafilatura_bin = "${placeholder "out"}/bin/trafilatura"'
-  '';
+    ''
+      substituteInPlace tests/cli_tests.py \
+        --replace-fail \
+          'trafilatura_bin = "trafilatura"' \
+          'trafilatura_bin = "${placeholder "out"}/bin/trafilatura"'
+    '';
 
   build-system = [ setuptools ];
 
+  pythonRelaxDeps = [
+    "lxml"
+  ];
   dependencies = [
     certifi
     charset-normalizer
@@ -68,9 +79,10 @@ buildPythonPackage rec {
   meta = {
     description = "Python package and command-line tool designed to gather text on the Web";
     homepage = "https://trafilatura.readthedocs.io";
-    changelog = "https://github.com/adbar/trafilatura/blob/v${version}/HISTORY.md";
+    changelog = "https://github.com/adbar/trafilatura/blob/${finalAttrs.src.tag}/HISTORY.md";
+    downloadPage = "https://github.com/adbar/trafilatura";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [ jokatzke ];
     mainProgram = "trafilatura";
   };
-}
+})

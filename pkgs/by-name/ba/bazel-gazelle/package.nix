@@ -4,15 +4,15 @@
   lib,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "bazel-gazelle";
-  version = "0.40.0";
+  version = "0.51.3";
 
   src = fetchFromGitHub {
-    owner = "bazelbuild";
-    repo = pname;
-    rev = "v${version}";
-    hash = "sha256-cGRE+AX62U6lZbUEid0QWb9zMTiIemop6Gqrqvz5+nk=";
+    owner = "bazel-contrib";
+    repo = "bazel-gazelle";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-ooqk4xutkjXoy9Irikos/53+6Mhdh3+WmJF7vo3JVFw=";
   };
 
   vendorHash = null;
@@ -21,15 +21,19 @@ buildGoModule rec {
 
   subPackages = [ "cmd/gazelle" ];
 
-  meta = with lib; {
-    homepage = "https://github.com/bazelbuild/bazel-gazelle";
+  meta = {
+    changelog = "https://github.com/bazel-contrib/bazel-gazelle/releases/tag/${finalAttrs.src.tag}";
+    homepage = "https://github.com/bazel-contrib/bazel-gazelle";
     description = ''
       Gazelle is a Bazel build file generator for Bazel projects. It natively
       supports Go and protobuf, and it may be extended to support new languages
       and custom rule sets.
     '';
-    license = licenses.asl20;
-    maintainers = with maintainers; [ kalbasit ];
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [
+      kalbasit
+      hythera
+    ];
     mainProgram = "gazelle";
   };
-}
+})

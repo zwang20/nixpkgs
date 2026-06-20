@@ -49,11 +49,13 @@ lib.runTests (
       ++ illumos
       ++ wasi
       ++ windows
+      ++ cygwin
       ++ embedded
       ++ mmix
       ++ js
       ++ genode
       ++ redox
+      ++ uefi
     );
 
     testarm = mseteq arm [
@@ -66,10 +68,8 @@ lib.runTests (
       "armv7l-linux"
       "armv7l-netbsd"
       "arm-none"
-      "armv7a-darwin"
     ];
     testarmv7 = mseteq armv7 [
-      "armv7a-darwin"
       "armv7a-linux"
       "armv7l-linux"
       "armv7a-netbsd"
@@ -84,7 +84,6 @@ lib.runTests (
       "i686-cygwin"
       "i686-windows"
       "i686-none"
-      "i686-darwin"
     ];
     testmips = mseteq mips [
       "mips-none"
@@ -97,6 +96,7 @@ lib.runTests (
     ];
     testmmix = mseteq mmix [ "mmix-mmixware" ];
     testpower = mseteq power [
+      "powerpc-linux"
       "powerpc-netbsd"
       "powerpc-none"
       "powerpc64-linux"
@@ -137,6 +137,7 @@ lib.runTests (
       "x86_64-solaris"
       "x86_64-windows"
       "x86_64-none"
+      "x86_64-uefi"
     ];
 
     testcygwin = mseteq cygwin [
@@ -145,9 +146,7 @@ lib.runTests (
     ];
     testdarwin = mseteq darwin [
       "x86_64-darwin"
-      "i686-darwin"
       "aarch64-darwin"
-      "armv7a-darwin"
     ];
     testfreebsd = mseteq freebsd [
       "aarch64-freebsd"
@@ -160,12 +159,11 @@ lib.runTests (
       "x86_64-genode"
     ];
     testredox = mseteq redox [ "x86_64-redox" ];
-    testgnu = mseteq gnu (
-      linux # ++ kfreebsd ++ ...
-    );
+    testgnu = mseteq gnu linux; # ++ kfreebsd ++ ...
     testillumos = mseteq illumos [ "x86_64-solaris" ];
     testlinux = mseteq linux [
       "aarch64-linux"
+      "arc-linux"
       "armv5tel-linux"
       "armv6l-linux"
       "armv7a-linux"
@@ -173,12 +171,14 @@ lib.runTests (
       "i686-linux"
       "loongarch64-linux"
       "m68k-linux"
+      "sh4-linux"
       "microblaze-linux"
       "microblazeel-linux"
       "mips-linux"
       "mips64-linux"
       "mips64el-linux"
       "mipsel-linux"
+      "powerpc-linux"
       "powerpc64-linux"
       "powerpc64le-linux"
       "riscv32-linux"
@@ -205,8 +205,6 @@ lib.runTests (
       "x86_64-openbsd"
     ];
     testwindows = mseteq windows [
-      "i686-cygwin"
-      "x86_64-cygwin"
       "aarch64-windows"
       "i686-windows"
       "x86_64-windows"
@@ -228,10 +226,22 @@ lib.runTests (
       expr = toLosslessStringMaybe (lib.systems.elaborate "x86_64-linux");
       expected = "x86_64-linux";
     };
-    test_toLosslessStringMaybe_fail = {
-      expr = toLosslessStringMaybe (lib.systems.elaborate "x86_64-linux" // { something = "extra"; });
-      expected = null;
-    };
+    test_toLosslessStringMaybe_fail = (
+      let
+        baseSystem = lib.systems.elaborate "x86_64-linux";
+      in
+      {
+        expr = toLosslessStringMaybe (
+          baseSystem
+          // {
+            _withoutFunctions = baseSystem._withoutFunctions // {
+              something = "extra";
+            };
+          }
+        );
+        expected = null;
+      }
+    );
     test_elaborate_config_over_system = {
       expr =
         (lib.systems.elaborate {
@@ -256,37 +266,65 @@ lib.runTests (
         }).parsed.cpu.arch;
       expected = "i686";
     };
+    test_equals_reelaborate_overridden_platform = {
+      expr =
+        let
+          base = lib.systems.elaborate "x86_64-linux";
+        in
+        lib.systems.equals base (
+          lib.systems.elaborate (
+            base
+            // {
+              useLLVM = true;
+              linker = "lld";
+            }
+          )
+        );
+      expected = false;
+    };
+  }
+  // {
+    # equals.functionNames must list exactly the function-valued attrs of an
+    # elaborated system, so that _withoutFunctions stays correct without
+    # iterating.
+    test_equals_functionNames_in_sync =
+      let
+        sys = lib.systems.elaborate "x86_64-linux";
+        actual = lib.filter (n: builtins.isFunction sys.${n}) (builtins.attrNames sys);
+        expected = lib.sort lib.lessThan lib.systems.functionNames;
+      in
+      {
+        expr = lib.sort lib.lessThan actual;
+        inherit expected;
+      };
   }
 
   # Generate test cases to assert that a change in any non-function attribute makes a platform unequal
-  //
-    lib.concatMapAttrs
-      (platformAttrName: origValue: {
+  // (
+    let
+      # arbitrary choice, just to get all the elaborated attrNames
+      baseSystem = lib.systems.elaborate "x86_64-linux";
+    in
+    lib.concatMapAttrs (platformAttrName: origValue: {
+      ${"test_equals_unequal_${platformAttrName}"} =
+        let
+          # lib.systems.equals only checks the subattrset
+          modified =
+            assert origValue != arbitraryValue;
+            baseSystem
+            // {
+              _withoutFunctions = baseSystem._withoutFunctions // {
+                ${platformAttrName} = arbitraryValue;
+              };
+            };
+          arbitraryValue = x: "<<modified>>";
+        in
+        {
+          expr = lib.systems.equals baseSystem modified;
+          expected = false;
+        };
 
-        ${"test_equals_unequal_${platformAttrName}"} =
-          let
-            modified =
-              assert origValue != arbitraryValue;
-              lib.systems.elaborate "x86_64-linux" // { ${platformAttrName} = arbitraryValue; };
-            arbitraryValue = x: "<<modified>>";
-          in
-          {
-            expr = lib.systems.equals (lib.systems.elaborate "x86_64-linux") modified;
-            expected =
-              {
-                # Changes in these attrs are not detectable because they're function.
-                # The functions should be derived from the data, so this is not a problem.
-                canExecute = null;
-                emulator = null;
-                emulatorAvailable = null;
-                staticEmulatorAvailable = null;
-                isCompatible = null;
-              } ? ${platformAttrName};
-          };
-
-      })
-      (
-        lib.systems.elaborate "x86_64-linux" # arbitrary choice, just to get all the elaborated attrNames
-      )
+    }) baseSystem
+  )
 
 )

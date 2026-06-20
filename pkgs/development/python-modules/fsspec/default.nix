@@ -38,14 +38,14 @@
 
 buildPythonPackage rec {
   pname = "fsspec";
-  version = "2025.2.0";
+  version = "2026.3.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "fsspec";
     repo = "filesystem_spec";
     tag = version;
-    hash = "sha256-vJYnPbGbEMAe1p0EUBxSRZYtvBdJzjzDOesyTJsFJbU=";
+    hash = "sha256-K/qHc9uBYq/HkA6xhKAujdCBqH+0kcFnfD3a506A9Ns=";
   };
 
   build-system = [
@@ -111,12 +111,17 @@ buildPythonPackage rec {
     pytest-mock
     pytest-vcr
     pytestCheckHook
+    requests
     writableTmpDirAsHomeHook
   ];
 
   __darwinAllowLocalNetworking = true;
 
-  disabledTests = lib.optionals (stdenv.hostPlatform.isDarwin) [
+  disabledTests = [
+    # network access to aws s3
+    "test_async_cat_file_ranges"
+  ]
+  ++ lib.optionals (stdenv.hostPlatform.isDarwin) [
     # works locally on APFS, fails on hydra with AssertionError comparing timestamps
     # darwin hydra builder uses HFS+ and has only one second timestamp resolution
     # this two tests however, assume nanosecond resolution
@@ -126,12 +131,17 @@ buildPythonPackage rec {
     "test_directories"
   ];
 
+  disabledTestPaths = [
+    # network access to github.com
+    "fsspec/implementations/tests/test_github.py"
+  ];
+
   pythonImportsCheck = [ "fsspec" ];
 
   meta = {
     description = "Specification that Python filesystems should adhere to";
     homepage = "https://github.com/fsspec/filesystem_spec";
-    changelog = "https://github.com/fsspec/filesystem_spec/raw/${version}/docs/source/changelog.rst";
+    changelog = "https://github.com/fsspec/filesystem_spec/raw/${src.tag}/docs/source/changelog.rst";
     license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [ nickcao ];
   };

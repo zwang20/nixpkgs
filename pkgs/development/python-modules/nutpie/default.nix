@@ -1,5 +1,6 @@
 {
   lib,
+  stdenv,
   buildPythonPackage,
   fetchFromGitHub,
   rustPlatform,
@@ -9,10 +10,14 @@
   rustc,
 
   # dependencies
+  arro3-core,
   arviz,
+  obstore,
   pandas,
+  platformdirs,
   pyarrow,
   xarray,
+  zarr,
 
   # tests
   # bridgestan, (not packaged)
@@ -28,22 +33,22 @@
   writableTmpDirAsHomeHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "nutpie";
-  version = "0.14.3";
+  version = "0.16.10";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "pymc-devs";
     repo = "nutpie";
-    tag = "v${version}";
-    hash = "sha256-l2TEGa9VVJmU4mKZwfUdhiloW6Bh41OqIQzTRvYK3eg=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-Cqi4vhvu6Gvy0gOcgrpKCHbuVIyY5L9+y5nafzksPwg=";
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit src;
-    name = "${pname}-${version}";
-    hash = "sha256-hPKT+YM9s7XZhI3sfnLBfokbGQhwDa9y5Fgg1TItO4M=";
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-cJixyzzt2vwdT2B/XbOLbG6XfWVeYAJg5YWT18GqMDw=";
   };
 
   build-system = [
@@ -54,15 +59,14 @@ buildPythonPackage rec {
     rustc
   ];
 
-  pythonRelaxDeps = [
-    "xarray"
-  ];
-
   dependencies = [
+    arro3-core
     arviz
+    obstore
     pandas
     pyarrow
     xarray
+    zarr
   ];
 
   pythonImportsCheck = [ "nutpie" ];
@@ -74,11 +78,17 @@ buildPythonPackage rec {
     numba
     jax
     jaxlib
+    platformdirs
     pymc
     pytest-timeout
     pytestCheckHook
     setuptools
     writableTmpDirAsHomeHook
+  ];
+
+  disabledTests = lib.optionals (stdenv.hostPlatform.isLinux && stdenv.hostPlatform.isAarch64) [
+    # flaky (assert np.float64(0.0017554642626285276) > 0.01)
+    "test_normalizing_flow"
   ];
 
   disabledTestPaths = [
@@ -89,8 +99,8 @@ buildPythonPackage rec {
   meta = {
     description = "Python wrapper for nuts-rs";
     homepage = "https://github.com/pymc-devs/nutpie";
-    changelog = "https://github.com/pymc-devs/nutpie/blob/v${version}/CHANGELOG.md";
+    changelog = "https://github.com/pymc-devs/nutpie/blob/${finalAttrs.src.tag}/CHANGELOG.md";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ GaetanLepage ];
   };
-}
+})

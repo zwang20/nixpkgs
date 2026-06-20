@@ -5,33 +5,32 @@
   installShellFiles,
   rustPlatform,
   nixosTests,
-  jq,
-  moreutils,
+  nix-update-script,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "atuin";
-  version = "18.4.0";
+  version = "18.16.1";
 
   src = fetchFromGitHub {
     owner = "atuinsh";
     repo = "atuin";
-    rev = "v${version}";
-    hash = "sha256-P/q4XYhpXo9kwiltA0F+rQNSlqI+s8TSi5v5lFJWJ/4=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-XrJFetPs7TsbX5Cxekj+h3hlmQLoOpB7U+c36NM/jeA=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-0KswWFy44ViPHlMCmwgVlDe7diDjLmVUk2517BEMTtk=";
+  cargoHash = "sha256-eqxeE7+UxBTdaYjlonOz6pYQ3mar8lNUd/K0CSuzquc=";
 
   # atuin's default features include 'check-updates', which do not make sense
   # for distribution builds. List all other default features.
   buildNoDefaultFeatures = true;
   buildFeatures = [
+    "ai"
     "client"
-    "sync"
-    "server"
     "clipboard"
     "daemon"
+    "hex"
+    "sync"
   ];
 
   nativeBuildInputs = [ installShellFiles ];
@@ -43,10 +42,6 @@ rustPlatform.buildRustPackage rec {
       --zsh <($out/bin/atuin gen-completions -s zsh)
   '';
 
-  passthru.tests = {
-    inherit (nixosTests) atuin;
-  };
-
   checkFlags = [
     # tries to make a network access
     "--skip=registration"
@@ -55,10 +50,18 @@ rustPlatform.buildRustPackage rec {
     # PermissionDenied (Operation not permitted)
     "--skip=change_password"
     "--skip=multi_user_test"
-    "--skip=store::var::tests::build_vars"
-    # Tries to touch files
-    "--skip=build_aliases"
   ];
+
+  preCheck = ''
+    export HOME=$(mktemp -d)
+  '';
+
+  passthru = {
+    tests = {
+      inherit (nixosTests) atuin atuin-programs;
+    };
+    updateScript = nix-update-script { };
+  };
 
   meta = {
     description = "Replacement for a shell history which records additional commands context with optional encrypted synchronization between machines";
@@ -68,7 +71,8 @@ rustPlatform.buildRustPackage rec {
       SuperSandro2000
       sciencentistguy
       _0x4A6F
+      rvdp
     ];
     mainProgram = "atuin";
   };
-}
+})

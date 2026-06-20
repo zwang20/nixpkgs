@@ -1,6 +1,6 @@
 {
   lib,
-  python313,
+  python314,
   fetchFromGitLab,
   callPackage,
   stdenv,
@@ -9,10 +9,10 @@
 }:
 
 let
-  python = python313.override {
+  python = python314.override {
+    self = python;
     packageOverrides = final: prev: {
-      django = final.django_5;
-      django-extensions = prev.django-extensions.overridePythonAttrs { doCheck = false; };
+      django = final.django_6;
     };
   };
 
@@ -21,45 +21,53 @@ let
     [
       aiohttp
       anonymizeip
+      arro3-core
+      arro3-io
       boto3
       brotli
-      celery
-      celery-batches
-      dj-stripe
+      cxxfilt
       django
       django-allauth
       django-anymail
+      django-async-backend
       django-cors-headers
-      django-csp
       django-environ
       django-extensions
       django-import-export
       django-ipware
       django-ninja
+      django-ninja-cursor-pagination
       django-organizations
+      django-postgres-partition
       django-prometheus
-      django-redis
-      django-sql-utils
       django-storages
+      django-vcache
+      django-vtasks
+      duckdb
       google-cloud-logging
-      gunicorn
+      granian
+      mcp
+      minidump
       orjson
       psycopg
       pydantic
       sentry-sdk
       symbolic
       user-agents
-      uvicorn
+      uuid6
       uwsgi-chunked
       whitenoise
     ]
-    ++ celery.optional-dependencies.redis
+    ++ django-allauth.optional-dependencies.headless-spec
     ++ django-allauth.optional-dependencies.mfa
     ++ django-allauth.optional-dependencies.socialaccount
-    ++ django-redis.optional-dependencies.hiredis
     ++ django-storages.optional-dependencies.boto3
     ++ django-storages.optional-dependencies.azure
     ++ django-storages.optional-dependencies.google
+    ++ django-vtasks.optional-dependencies.valkey
+    ++ granian.optional-dependencies.reload
+    ++ granian.optional-dependencies.uvloop
+    ++ mcp.optional-dependencies.cli
     ++ psycopg.optional-dependencies.c
     ++ psycopg.optional-dependencies.pool
     ++ pydantic.optional-dependencies.email;
@@ -69,15 +77,23 @@ in
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "glitchtip";
-  version = "4.2.5";
+  version = "6.1.8";
   pyproject = true;
 
   src = fetchFromGitLab {
     owner = "glitchtip";
     repo = "glitchtip-backend";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-OTf2rvx+ONnB7pLB7rinztXL7l2eZfIuI7PosCXaOH8=";
+    hash = "sha256-4RAZYGoS1tUbcPVv8L0sFWqFfBX05yXKZHFZDbEn0C0=";
   };
+
+  postPatch = ''
+    echo 'import os
+    ALLAUTH_TRUSTED_CLIENT_IP_HEADER = os.getenv(
+        "ALLAUTH_TRUSTED_CLIENT_IP_HEADER",
+        None
+    )' >> glitchtip/settings.py
+  '';
 
   propagatedBuildInputs = pythonPackages;
 

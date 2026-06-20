@@ -1,11 +1,33 @@
 let
   mirrors = import ./mirrors.nix;
+  inherit (builtins)
+    elemAt
+    head
+    isString
+    match
+    ;
 in
 
-{ system }:
-
 {
-  url ? builtins.head urls,
+  rewriteURL,
+  system,
+}:
+let
+  handleUrl =
+    if rewriteURL == null then
+      url: url
+    else
+      url:
+      let
+        u = rewriteURL url;
+      in
+      if isString u then
+        u
+      else
+        throw "rewriteURL deleted the only URL passed to fetchurlBoot (was ${url})";
+in
+{
+  url ? head urls,
   urls ? [ ],
   sha256 ? "",
   hash ? "",
@@ -28,7 +50,8 @@ import <nix/fetchurl.nix> {
     # Handle mirror:// URIs. Since <nix/fetchurl.nix> currently
     # supports only one URI, use the first listed mirror.
     let
-      m = builtins.match "mirror://([a-z]+)/(.*)" url;
+      url_ = handleUrl url;
+      m = match "mirror://([a-z]+)/(.*)" url_;
     in
-    if m == null then url else builtins.head (mirrors.${builtins.elemAt m 0}) + (builtins.elemAt m 1);
+    if m == null then url_ else head (mirrors.${head m}) + (elemAt m 1);
 }

@@ -18,7 +18,7 @@
 }:
 
 let
-  version = "0.5.3";
+  version = "0.10.0";
   inherit (python) pythonVersion;
 
   # As of 2023-06-06, google/jax upstream is no longer publishing CPU-only wheels to their GCS bucket. Instead the
@@ -46,68 +46,68 @@ let
         };
     in
     {
-      "3.10-x86_64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_x86_64";
-        dist = "cp310";
-        hash = "sha256-Ur5sl3Wv9zimEXDYwEdQXHW7eZpFUY5mp6CQgSexF4U=";
-      };
-      "3.10-aarch64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_aarch64";
-        dist = "cp310";
-        hash = "sha256-lyQA20r26FJw2B215uYg0xOV8EcuUQxQ381Ms/crciA=";
-      };
-      "3.10-aarch64-darwin" = getSrcFromPypi {
-        platform = "macosx_11_0_arm64";
-        dist = "cp310";
-        hash = "sha256-SP9cifuKD+BNR16d3AdLSHmpHXq2ilHOxc0eh/gebEc=";
-      };
-
       "3.11-x86_64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_x86_64";
+        platform = "manylinux_2_27_x86_64";
         dist = "cp311";
-        hash = "sha256-KeFTD8gYMyFvHii1eNDFlpdlT3LuMcekTtd1O69axGY=";
+        hash = "sha256-m+IpmTpB5bK4TyNOzBml3gLzXt2xGVzwJ71TnhYB4V0=";
       };
       "3.11-aarch64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_aarch64";
+        platform = "manylinux_2_27_aarch64";
         dist = "cp311";
-        hash = "sha256-pGZvgdcsBg7T5YHe0RapyqmwpwoUilTLEqHTr8o2JLU=";
+        hash = "sha256-PblOvIWTddlV3jUEGCrdfOFzPOPTDBXg7wMWAstRpVk=";
       };
       "3.11-aarch64-darwin" = getSrcFromPypi {
         platform = "macosx_11_0_arm64";
         dist = "cp311";
-        hash = "sha256-tivYsp5aT5v6pXyNr24EggssmU9Ejz3sYC1kJVVF6fI=";
+        hash = "sha256-J3Ay6fB0w/1f/R4MsD1P5m4nLeRyZnzbxBitmbIbZGo=";
       };
 
       "3.12-x86_64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_x86_64";
+        platform = "manylinux_2_27_x86_64";
         dist = "cp312";
-        hash = "sha256-Wl6IqxzW/feNaavjVE6PCcziAN0zm7hfvjwupn8qXmg=";
+        hash = "sha256-sL+4ZaB98ubXQYwLDCkt0pS1UAUjsd1YcrGA2yqkgNQ=";
       };
       "3.12-aarch64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_aarch64";
+        platform = "manylinux_2_27_aarch64";
         dist = "cp312";
-        hash = "sha256-vd9jYDd6oceS5H/YfzB8NC4zHl/zWC+UCxvKAPa0vHM=";
+        hash = "sha256-qh1w8aTifrQDZU5x4vso1XhtPpt3/BhH6MU4mICSfKQ=";
       };
       "3.12-aarch64-darwin" = getSrcFromPypi {
         platform = "macosx_11_0_arm64";
         dist = "cp312";
-        hash = "sha256-05Tb3koca9Z1Ac+ynTgZoQuQDLU0zA/GAzGfcJLyTPo=";
+        hash = "sha256-fB2bRjMnx6IzPyEBFOywTyj+/FG6gjOoWiKAzOdb20I=";
       };
 
       "3.13-x86_64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_x86_64";
+        platform = "manylinux_2_27_x86_64";
         dist = "cp313";
-        hash = "sha256-u3WTy3//yxOWPyL6UintlguPtK5ew7CCAEjL1n8ejjE=";
+        hash = "sha256-0wPcMbZei3k9VgD4GxWDvgPcm4dqTBCz4lm2YJocvjs=";
       };
       "3.13-aarch64-linux" = getSrcFromPypi {
-        platform = "manylinux2014_aarch64";
+        platform = "manylinux_2_27_aarch64";
         dist = "cp313";
-        hash = "sha256-6QS5Le37x+VFclqNdnaYcDCunAaQAdlHAbwQnG2rQQA=";
+        hash = "sha256-bY14twcLNOTFu6X34Qkn5/Sqybab4X6bCliYVTpDOPM=";
       };
       "3.13-aarch64-darwin" = getSrcFromPypi {
         platform = "macosx_11_0_arm64";
         dist = "cp313";
-        hash = "sha256-MTIcJSgqBqbfyUBQe8FNCgrIONjO1sB6oAp/rjTOez8=";
+        hash = "sha256-OEY1//VYmaKVu8gu5sb3c6MA54fcRyypK755q/qsg2k=";
+      };
+
+      "3.14-x86_64-linux" = getSrcFromPypi {
+        platform = "manylinux_2_27_x86_64";
+        dist = "cp314";
+        hash = "sha256-KkLPBMD4i8A7FQoX+n3bsvQOCWZn7IobhA7YeRPm5zU=";
+      };
+      "3.14-aarch64-linux" = getSrcFromPypi {
+        platform = "manylinux_2_27_aarch64";
+        dist = "cp314";
+        hash = "sha256-rUfgckMJeewhY3qkh9TcRkAouOm+JyaPN95pU2x240E=";
+      };
+      "3.14-aarch64-darwin" = getSrcFromPypi {
+        platform = "macosx_11_0_arm64";
+        dist = "cp314";
+        hash = "sha256-mLJmcpQ2cnQoc/ZbwDIWgZ/FUyXJnxRlkNAHwBcr/zA=";
       };
     };
 in
@@ -115,6 +115,8 @@ buildPythonPackage {
   pname = "jaxlib";
   inherit version;
   format = "wheel";
+
+  __structuredAttrs = true;
 
   # See https://discourse.nixos.org/t/ofborg-does-not-respect-meta-platforms/27019/6.
   src = (

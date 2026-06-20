@@ -2,8 +2,8 @@
   lib,
   stdenv,
   buildPythonPackage,
-  pythonOlder,
   fetchFromGitHub,
+  clang-tools,
   cmake,
   cython,
   ninja,
@@ -18,23 +18,29 @@
 
 buildPythonPackage rec {
   pname = "rapidfuzz";
-  version = "3.12.2";
+  version = "3.14.5";
   pyproject = true;
-
-  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "maxbachmann";
     repo = "RapidFuzz";
     tag = "v${version}";
-    hash = "sha256-keV+IBBHkdDpKuT1o6xNA5UAHlG1I9vkt13W8dafiDw=";
+    hash = "sha256-wF7eeSD6GQfN0EOwDvrgjMqN5u2wxXFlktQS7nIKgkU=";
   };
+
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail "Cython >=3.1.6, <3.3.0" "Cython >=3.1.6"
+  '';
 
   build-system = [
     cmake
     cython
     ninja
     scikit-build-core
+  ]
+  ++ lib.optionals stdenv.cc.isClang [
+    clang-tools # provides wrapped clang-scan-deps
   ];
 
   dontUseCmakeConfigure = true;
@@ -44,13 +50,11 @@ buildPythonPackage rec {
     taskflow
   ];
 
-  preBuild =
-    ''
-      export RAPIDFUZZ_BUILD_EXTENSION=1
-    ''
-    + lib.optionalString (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64) ''
-      export CMAKE_ARGS="-DCMAKE_CXX_COMPILER_AR=$AR -DCMAKE_CXX_COMPILER_RANLIB=$RANLIB"
-    '';
+  env.RAPIDFUZZ_BUILD_EXTENSION = 1;
+
+  preBuild = lib.optionalString (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64) ''
+    export CMAKE_ARGS="-DCMAKE_CXX_COMPILER_AR=$AR -DCMAKE_CXX_COMPILER_RANLIB=$RANLIB"
+  '';
 
   optional-dependencies = {
     all = [ numpy ];
@@ -66,11 +70,6 @@ buildPythonPackage rec {
     pytestCheckHook
   ];
 
-  disabledTests = lib.optionals (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64) [
-    # segfaults
-    "test_cdist"
-  ];
-
   pythonImportsCheck = [
     "rapidfuzz.distance"
     "rapidfuzz.fuzz"
@@ -78,11 +77,11 @@ buildPythonPackage rec {
     "rapidfuzz.utils"
   ];
 
-  meta = with lib; {
+  meta = {
     description = "Rapid fuzzy string matching";
     homepage = "https://github.com/maxbachmann/RapidFuzz";
     changelog = "https://github.com/maxbachmann/RapidFuzz/blob/${src.tag}/CHANGELOG.rst";
-    license = licenses.mit;
-    maintainers = with maintainers; [ dotlambda ];
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ dotlambda ];
   };
 }

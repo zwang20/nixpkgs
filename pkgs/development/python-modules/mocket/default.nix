@@ -1,9 +1,8 @@
 {
   lib,
   buildPythonPackage,
-  fetchPypi,
-  pythonOlder,
   stdenv,
+  fetchPypi,
 
   # build-system
   hatchling,
@@ -12,6 +11,7 @@
   decorator,
   h11,
   puremagic,
+  typing-extensions,
   urllib3,
 
   # optional-dependencies
@@ -29,7 +29,7 @@
   pytest-cov-stub,
   pytestCheckHook,
   redis,
-  valkey,
+  redisTestHook,
   requests,
   sure,
 
@@ -37,12 +37,12 @@
 
 buildPythonPackage rec {
   pname = "mocket";
-  version = "3.13.2";
+  version = "3.14.1";
   pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-Gms2WOZowrwf6EQt94QLW3cxhUT1wVeplSd2sX6/8qI=";
+    hash = "sha256-MLlh0CRtlUsg+Bvvdvedzk0RVLCm+zzt8TWie6yHTkU=";
   };
 
   build-system = [ hatchling ];
@@ -51,6 +51,7 @@ buildPythonPackage rec {
     decorator
     h11
     puremagic
+    typing-extensions
     urllib3
   ];
 
@@ -70,23 +71,16 @@ buildPythonPackage rec {
     pytest-cov-stub
     pytestCheckHook
     redis
+    redisTestHook
     requests
     sure
-  ] ++ lib.flatten (lib.attrValues optional-dependencies);
-
-  preCheck = lib.optionalString stdenv.hostPlatform.isLinux ''
-    ${valkey}/bin/redis-server &
-    REDIS_PID=$!
-  '';
-
-  postCheck = lib.optionalString stdenv.hostPlatform.isLinux ''
-    kill $REDIS_PID
-  '';
+  ]
+  ++ lib.concatAttrValues optional-dependencies;
 
   # Skip http tests, they require network access
   env.SKIP_TRUE_HTTP = true;
 
-  _darwinAllowLocalNetworking = true;
+  __darwinAllowLocalNetworking = true;
 
   disabledTests = [
     # tests that require network access (like DNS lookups)
@@ -96,17 +90,19 @@ buildPythonPackage rec {
     "test_gethostbyname"
     # httpx read failure
     "test_no_dangling_fds"
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # fails on darwin due to upstream bug: https://github.com/mindflayer/python-mocket/issues/287
+    "test_httprettish_httpx_session"
   ];
-
-  disabledTestPaths = lib.optionals stdenv.hostPlatform.isDarwin [ "tests/test_redis.py" ];
 
   pythonImportsCheck = [ "mocket" ];
 
-  meta = with lib; {
+  meta = {
     changelog = "https://github.com/mindflayer/python-mocket/releases/tag/${version}";
     description = "Socket mock framework for all kinds of sockets including web-clients";
     homepage = "https://github.com/mindflayer/python-mocket";
-    license = licenses.bsd3;
+    license = lib.licenses.bsd3;
     maintainers = [ ];
   };
 }

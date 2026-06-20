@@ -8,27 +8,24 @@
   pytest-cov-stub,
   pytest-xdist,
   pytestCheckHook,
-  pythonOlder,
   setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "propcache";
-  version = "0.3.0";
+  version = "0.4.1";
   pyproject = true;
-
-  disabled = pythonOlder "3.11";
 
   src = fetchFromGitHub {
     owner = "aio-libs";
     repo = "propcache";
     tag = "v${version}";
-    hash = "sha256-3jsQnRkXBB7/6xY44kv7JuAXz/P8oxUg8Hyg1O5w2Cg=";
+    hash = "sha256-7HQUOggbFC7kWcXqatLeCTNJqo0fW9FRCy8UkYL6wvM=";
   };
 
   postPatch = ''
     substituteInPlace packaging/pep517_backend/_backend.py \
-      --replace "Cython ~= 3.0.12" Cython
+      --replace "Cython ~=" "Cython >="
   '';
 
   build-system = [

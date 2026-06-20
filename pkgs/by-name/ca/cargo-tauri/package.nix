@@ -1,48 +1,72 @@
 {
   lib,
   stdenv,
+  bzip2,
   callPackage,
   rustPlatform,
   fetchFromGitHub,
-  gtk4,
   nix-update-script,
-  openssl,
   pkg-config,
-  webkitgtk_4_1,
+  testers,
+  xz,
+  zstd,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "tauri";
-  version = "2.4.1";
+  version = "2.11.2";
 
   src = fetchFromGitHub {
     owner = "tauri-apps";
     repo = "tauri";
-    tag = "tauri-cli-v${version}";
-    hash = "sha256-tUa3Hb2pDqjcQs8isu1PxI5nx4rUzB/rOep2hDsun1Q=";
+    tag = "tauri-cli-v${finalAttrs.version}";
+    hash = "sha256-BH/tQlrmCMAab5LqQ/xl9+A5nCnN8sk6mavvAkajYHM=";
   };
 
-  useFetchCargoVendor = true;
-  cargoHash = "sha256-nwrKeCKrzwDOdRwkkuRMR91IbtPRxnSrJFyEW0W+1wA=";
+  cargoHash = "sha256-QX151ckeSxbZgbFO88zhsvnNnjZffLpR5dDp1Dv1Wlo=";
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = lib.optionals (stdenv.hostPlatform.isDarwin || stdenv.hostPlatform.isLinux) [
+    pkg-config
+  ];
+
+  # Explicitly enable optional `rustls` dependency.
+  postPatch = ''
+    substituteInPlace crates/tauri/Cargo.toml \
+      --replace-fail 'dep:rustls' 'rustls'
+  '';
 
   buildInputs =
-    [ openssl ]
+    # Required for tauri-macos-sign and RPM support in tauri-bundler
+    lib.optionals (stdenv.hostPlatform.isDarwin || stdenv.hostPlatform.isLinux) [
+      bzip2
+      xz
+    ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [
-      gtk4
-      webkitgtk_4_1
+      zstd
     ];
 
-  cargoBuildFlags = [ "--package tauri-cli" ];
-  cargoTestFlags = cargoBuildFlags;
+  patches = [
+    ./skip-icon-macos.patch
+  ];
+
+  cargoBuildFlags = [
+    "--package"
+    "tauri-cli"
+  ];
+  cargoTestFlags = finalAttrs.cargoBuildFlags;
+
+  env = lib.optionalAttrs stdenv.hostPlatform.isLinux {
+    ZSTD_SYS_USE_PKG_CONFIG = true;
+  };
 
   passthru = {
     # See ./doc/hooks/tauri.section.md
-    hook = callPackage ./hook.nix { };
+    hook = callPackage ./hook.nix { cargo-tauri = finalAttrs.finalPackage; };
+    gst-plugin = callPackage ./gst-plugin.nix { };
 
     tests = {
-      hook = callPackage ./test-app.nix { };
+      hook = callPackage ./test-app.nix { cargo-tauri = finalAttrs.finalPackage; };
+      version = testers.testVersion { package = finalAttrs.finalPackage; };
     };
 
     updateScript = nix-update-script {
@@ -56,16 +80,15 @@ rustPlatform.buildRustPackage rec {
   meta = {
     description = "Build smaller, faster, and more secure desktop applications with a web frontend";
     homepage = "https://tauri.app/";
-    changelog = "https://github.com/tauri-apps/tauri/releases/tag/${src.tag}";
+    changelog = "https://github.com/tauri-apps/tauri/releases/tag/tauri-cli-v${finalAttrs.version}";
     license = with lib.licenses; [
       asl20 # or
       mit
     ];
     maintainers = with lib.maintainers; [
-      dit7ya
       getchoo
       happysalada
     ];
     mainProgram = "cargo-tauri";
   };
-}
+})

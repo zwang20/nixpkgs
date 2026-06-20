@@ -5,30 +5,26 @@
   fetchFromGitHub,
   hypothesis,
   pytestCheckHook,
-  pythonOlder,
   rustc,
   rustPlatform,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "jh2";
-  version = "5.0.8";
+  version = "5.0.13";
   pyproject = true;
-
-  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "jawah";
     repo = "h2";
-    tag = "v${version}";
-    hash = "sha256-dQ0FqiX9IqgF8fz0JDWQSHQrr9H3UwG9+mkZI3DwWSU=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-zlc0R+DeE9bd5daD7sUrGHXU3NR5tRiiFvBrccSKCTI=";
     fetchSubmodules = true;
   };
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit src;
-    name = "${pname}-${version}";
-    hash = "sha256-P27BIsloNsHHej8qE8EDtXLVvnUmWcbb/6LhP2w7wrw=";
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-BPTgGc/qH101ZBlqiqwBe5KXXpnpDGe5K6GLqG99GSI=";
   };
 
   build-system = [
@@ -48,11 +44,11 @@ buildPythonPackage rec {
   meta = {
     description = "HTTP/2 State-Machine based protocol implementation";
     homepage = "https://github.com/jawah/h2";
-    changelog = "https://github.com/jawah/h2/blob/${src.rev}/CHANGELOG.rst";
+    changelog = "https://github.com/jawah/h2/blob/${finalAttrs.src.rev}/CHANGELOG.rst";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [
       fab
       techknowlogick
     ];
   };
-}
+})

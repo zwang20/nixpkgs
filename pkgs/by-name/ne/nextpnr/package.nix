@@ -2,7 +2,6 @@
   lib,
   stdenv,
   fetchFromGitHub,
-  fetchpatch,
   cmake,
   boost,
   python3,
@@ -15,7 +14,6 @@
   enableGui ? false,
   wrapQtAppsHook ? null,
   qtbase ? null,
-  OpenGL ? null,
 }:
 
 let
@@ -24,91 +22,75 @@ let
     enablePython = true;
   };
 
-  pname = "nextpnr";
-  version = "0.7";
-
-  main_src = fetchFromGitHub {
-    owner = "YosysHQ";
-    repo = "nextpnr";
-    rev = "${pname}-${version}";
-    hash = "sha256-YIAQcCg9RjvCys1bQ3x+sTgTmnmEeXVbt9Lr6wtg1pA=";
-    name = "nextpnr";
-  };
-
-  test_src = fetchFromGitHub {
-    owner = "YosysHQ";
-    repo = "nextpnr-tests";
-    rev = "00c55a9eb9ea2e062b51fe0d64741412b185d95d";
-    hash = "sha256-83suMftMtnaRFq3T2/I7Uahb11WZlXhwYt6Q/rqi2Yo=";
-    name = "nextpnr-tests";
+  prjbeyond_src = fetchFromGitHub {
+    owner = "YosysHQ-GmbH";
+    repo = "prjbeyond-db";
+    rev = "f49f66be674d9857c657930353b867ba94bcbdd7";
+    hash = "sha256-B/VmKgMu6f2Y8umE+NgGD5W0FYBIfDcMVwgHocFzreA=";
   };
 in
 
-stdenv.mkDerivation {
-  inherit pname version;
+stdenv.mkDerivation (finalAttrs: {
+  pname = "nextpnr";
+  version = "0.10";
 
-  srcs = [
-    main_src
-    test_src
-  ];
+  src = fetchFromGitHub {
+    owner = "YosysHQ";
+    repo = "nextpnr";
+    tag = "nextpnr-${finalAttrs.version}";
+    fetchSubmodules = true;
+    hash = "sha256-goHHEvkBw+9s3RHGfQtRaueXRBnoI14TmfGmb+1WPAY=";
+  };
 
-  sourceRoot = main_src.name;
-
-  patches = [
-    (fetchpatch {
-      name = "boost-1_85-fixes.patch";
-      url = "https://github.com/YosysHQ/nextpnr/commit/f085950383155a745cf2e3c0f28c468d01ff5fd7.patch";
-      hash = "sha256-ihN3S4eeBQSrKbHrGinE/SlIY3QDytYCaO9Mtu36n6c=";
-    })
-  ];
+  # Don't use #embed macro for chipdb binary embeddings - otherwise getting spurious type narrowing errors.
+  # Maybe related to: https://github.com/llvm/llvm-project/issues/119256
+  postPatch = ''
+    substituteInPlace CMakeLists.txt \
+      --replace-fail "check_cxx_compiler_hash_embed(HAS_HASH_EMBED CXX_FLAGS_HASH_EMBED)" ""
+  '';
 
   nativeBuildInputs = [
     cmake
     python3
-  ] ++ (lib.optional enableGui wrapQtAppsHook);
-  buildInputs =
-    [
-      boostPython
-      eigen
-      python3Packages.apycula
-    ]
-    ++ (lib.optional enableGui qtbase)
-    ++ (lib.optional stdenv.cc.isClang llvmPackages.openmp);
+  ]
+  ++ lib.optionals enableGui [
+    wrapQtAppsHook
+  ];
 
-  cmakeFlags =
-    let
-      # the specified version must always start with "nextpnr-", so add it if
-      # missing (e.g. if the user overrides with a git hash)
-      rev = main_src.rev;
-      version = if (lib.hasPrefix "nextpnr-" rev) then rev else "nextpnr-${rev}";
-    in
-    [
-      "-DCURRENT_GIT_VERSION=${version}"
-      "-DARCH=generic;ice40;ecp5;gowin;himbaechel"
-      "-DBUILD_TESTS=ON"
-      "-DICESTORM_INSTALL_PREFIX=${icestorm}"
-      "-DTRELLIS_INSTALL_PREFIX=${trellis}"
-      "-DTRELLIS_LIBDIR=${trellis}/lib/trellis"
-      "-DGOWIN_BBA_EXECUTABLE=${python3Packages.apycula}/bin/gowin_bba"
-      "-DUSE_OPENMP=ON"
-      # warning: high RAM usage
-      "-DSERIALIZE_CHIPDBS=OFF"
-      "-DHIMBAECHEL_GOWIN_DEVICES=all"
-    ]
-    ++ (lib.optional enableGui "-DBUILD_GUI=ON")
-    ++ (lib.optional (
-      enableGui && stdenv.hostPlatform.isDarwin
-    ) "-DOPENGL_INCLUDE_DIR=${OpenGL}/Library/Frameworks");
+  buildInputs = [
+    boostPython
+    eigen
+    python3Packages.apycula
+  ]
+  ++ lib.optionals enableGui [
+    qtbase
+  ]
+  ++ lib.optionals stdenv.cc.isClang [
+    llvmPackages.openmp
+  ];
 
-  postPatch = ''
-    # use PyPy for icestorm if enabled
-    substituteInPlace ./ice40/CMakeLists.txt \
-      --replace ''\'''${PYTHON_EXECUTABLE}' '${icestorm.pythonInterp}'
-  '';
+  cmakeFlags = [
+    (lib.cmakeFeature "CURRENT_GIT_VERSION" finalAttrs.src.tag)
+    (lib.cmakeFeature "ARCH" "generic;ice40;ecp5;himbaechel")
+    (lib.cmakeBool "BUILD_TESTS" true)
+    (lib.cmakeFeature "ICESTORM_INSTALL_PREFIX" icestorm.outPath)
+    (lib.cmakeFeature "TRELLIS_INSTALL_PREFIX" trellis.outPath)
+    (lib.cmakeFeature "TRELLIS_LIBDIR" "${lib.getLib trellis}/lib/trellis")
+    (lib.cmakeFeature "GOWIN_BBA_EXECUTABLE" (lib.getExe' python3Packages.apycula "gowin_bba"))
+    (lib.cmakeBool "USE_OPENMP" true)
 
-  preBuild = ''
-    ln -s ../${test_src.name} tests
-  '';
+    # gatemate excluded due to non-reproducible build https://github.com/YosysHQ/prjpeppercorn/issues/9
+    # xilinx excluded due to needing vivado https://github.com/f4pga/prjxray?tab=readme-ov-file#step-1
+    (lib.cmakeFeature "HIMBAECHEL_UARCH" "example;gowin;ng-ultra")
+
+    (lib.cmakeFeature "HIMBAECHEL_GOWIN_DEVICES" "all")
+    (lib.cmakeFeature "HIMBAECHEL_PRJBEYOND_DB" prjbeyond_src.outPath)
+    # https://github.com/YosysHQ/nextpnr/issues/1578
+    # `Compatibility with CMake < 3.5 has been removed from CMake.`
+    # "CMAKE_POLICY_VERSION_MINIMUM=3.5"
+
+    (lib.cmakeBool "BUILD_GUI" enableGui)
+  ];
 
   doCheck = true;
 
@@ -116,17 +98,17 @@ stdenv.mkDerivation {
     wrapQtApp $out/bin/nextpnr-generic
     wrapQtApp $out/bin/nextpnr-ice40
     wrapQtApp $out/bin/nextpnr-ecp5
-    wrapQtApp $out/bin/nextpnr-gowin
     wrapQtApp $out/bin/nextpnr-himbaechel
   '';
 
   strictDeps = true;
 
-  meta = with lib; {
+  meta = {
     description = "Place and route tool for FPGAs";
     homepage = "https://github.com/yosyshq/nextpnr";
-    license = licenses.isc;
-    platforms = platforms.all;
-    maintainers = with maintainers; [ thoughtpolice ];
+    changelog = "https://github.com/YosysHQ/nextpnr/releases/tag/${finalAttrs.src.tag}";
+    license = lib.licenses.isc;
+    platforms = lib.platforms.all;
+    maintainers = with lib.maintainers; [ thoughtpolice ];
   };
-}
+})

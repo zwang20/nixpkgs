@@ -11,6 +11,7 @@
   asn1crypto,
   bincopy,
   bitstring,
+  chardet,
   click,
   click-command-tree,
   click-option-group,
@@ -27,40 +28,39 @@
   packaging,
   platformdirs,
   prettytable,
+  pyasn1,
   pyocd,
   pyserial,
   requests,
   ruamel-yaml,
   sly,
+  spsdk-mcu-link,
+  spsdk-pyocd,
   typing-extensions,
+  x690,
 
   # tests
+  cookiecutter,
   ipykernel,
   pytest-notebook,
   pytestCheckHook,
   voluptuous,
   versionCheckHook,
+  writableTmpDirAsHomeHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "spsdk";
-  version = "2.5.0";
+  version = "3.9.0";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "nxp-mcuxpresso";
     repo = "spsdk";
-    tag = "v${version}";
-    hash = "sha256-Ua32c6hNjwfjsQIugiqtRL50AvOrPgqyKoG1Lb0NVqE=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-eA18DvQ0IIZtseJXXXMiFYkaOwBIhVXNaWiAObIj55I=";
   };
-
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace-fail "setuptools>=72.1,<74" "setuptools"
-
-    substituteInPlace setup.py \
-      --replace-fail "setuptools>=72.1,<74" "setuptools"
-  '';
 
   build-system = [
     setuptools
@@ -69,8 +69,13 @@ buildPythonPackage rec {
 
   pythonRelaxDeps = [
     "cryptography"
-    "requests"
+    "filelock"
+    "importlib-metadata"
     "packaging"
+    "prettytable"
+    "requests"
+    "ruamel.yaml.clib"
+    "setuptools_scm"
     "typing-extensions"
   ];
 
@@ -84,10 +89,12 @@ buildPythonPackage rec {
     asn1crypto
     bincopy
     bitstring
+    chardet
     click
     click-command-tree
     click-option-group
     colorama
+    cookiecutter
     crcmod
     cryptography
     deepmerge
@@ -100,43 +107,48 @@ buildPythonPackage rec {
     packaging
     platformdirs
     prettytable
+    pyasn1
     pyocd
     pyserial
     requests
     ruamel-yaml
     sly
+    spsdk-mcu-link
+    spsdk-pyocd
     typing-extensions
+    x690
   ];
 
   pythonImportsCheck = [ "spsdk" ];
 
-  preInstallCheck = ''
-    export HOME="$(mktemp -d)"
-  '';
-
   nativeCheckInputs = [
+    cookiecutter
     ipykernel
     pytest-notebook
     pytestCheckHook
     voluptuous
     versionCheckHook
+    writableTmpDirAsHomeHook
   ];
-  versionCheckProgramArg = "--version";
 
   disabledTests = [
     # Missing rotk private key
     "test_general_notebooks"
+
+    # Attempts to access /run
+    "test_nxpimage_famode_export_cli"
+
+    # spsdk.exceptions.SPSDKValueError: SPSDK: The EC curve with name 'sect163k1' is not supported
+    "test_keys_generation_ec"
   ];
 
   meta = {
-    changelog = "https://github.com/nxp-mcuxpresso/spsdk/blob/${src.tag}/docs/release_notes.rst";
+    changelog = "https://github.com/nxp-mcuxpresso/spsdk/blob/${finalAttrs.src.tag}/docs/release_notes.rst";
     description = "NXP Secure Provisioning SDK";
     homepage = "https://github.com/nxp-mcuxpresso/spsdk";
     license = lib.licenses.bsd3;
-    maintainers = with lib.maintainers; [
-      frogamic
-      sbruder
+    maintainers = [
     ];
     mainProgram = "spsdk";
   };
-}
+})

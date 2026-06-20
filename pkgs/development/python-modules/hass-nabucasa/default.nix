@@ -8,34 +8,45 @@
   ciso8601,
   cryptography,
   fetchFromGitHub,
+  freezegun,
+  grpcio,
+  icmplib,
+  josepy,
   pycognito,
   pyjwt,
   pytest-aiohttp,
+  pytest-socket,
   pytest-timeout,
   pytestCheckHook,
   pythonOlder,
+  sentence-stream,
   setuptools,
   snitun,
   syrupy,
+  voluptuous,
   webrtc-models,
   xmltodict,
+  yarl,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "hass-nabucasa";
-  version = "0.92.0";
+  version = "2.2.0";
   pyproject = true;
 
-  disabled = pythonOlder "3.12";
+  disabled = pythonOlder "3.14";
 
   src = fetchFromGitHub {
     owner = "nabucasa";
     repo = "hass-nabucasa";
-    tag = version;
-    hash = "sha256-OwU3HxUj8M3/3Xv+9WPNbV8sVVR8S9u9U3mSK/P+4o8=";
+    tag = finalAttrs.version;
+    hash = "sha256-+HRyXdl/gw/dhZ+T3peinD5FMm0O/M87Uu/wyLU1eJs=";
   };
 
-  pythonRelaxDeps = [ "acme" ];
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail "0.0.0" "${finalAttrs.version}"
+  '';
 
   build-system = [ setuptools ];
 
@@ -46,14 +57,22 @@ buildPythonPackage rec {
     attrs
     ciso8601
     cryptography
+    grpcio
+    icmplib
+    josepy
     pycognito
     pyjwt
+    sentence-stream
     snitun
+    voluptuous
     webrtc-models
+    yarl
   ];
 
   nativeCheckInputs = [
+    freezegun
     pytest-aiohttp
+    pytest-socket
     pytest-timeout
     pytestCheckHook
     syrupy
@@ -62,11 +81,13 @@ buildPythonPackage rec {
 
   pythonImportsCheck = [ "hass_nabucasa" ];
 
-  meta = with lib; {
+  meta = {
     description = "Python module for the Home Assistant cloud integration";
     homepage = "https://github.com/NabuCasa/hass-nabucasa";
-    changelog = "https://github.com/NabuCasa/hass-nabucasa/releases/tag/${src.tag}";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ Scriptkiddi ];
+    changelog = "https://github.com/NabuCasa/hass-nabucasa/releases/tag/${finalAttrs.src.tag}";
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [
+      fab
+    ];
   };
-}
+})

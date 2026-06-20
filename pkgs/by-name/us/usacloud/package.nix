@@ -3,40 +3,44 @@
   buildGoModule,
   fetchFromGitHub,
   versionCheckHook,
+  writableTmpDirAsHomeHook,
   nix-update-script,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "usacloud";
-  version = "1.14.1";
+  version = "1.22.1";
 
   src = fetchFromGitHub {
     owner = "sacloud";
     repo = "usacloud";
-    tag = "v${version}";
-    hash = "sha256-bIVC0pa+54a/OpGKOM3LH7IMZnuYDvfGOMxcIwhHI7U=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-dlrhrmIKU360/54rvjPvkwpvtvq2LtdjqV15dkFLmFI=";
   };
 
-  vendorHash = "sha256-m89iw5nk34KkCh8vlnKcwoPQXprUKzETYQNzi2CtX4c=";
+  vendorHash = "sha256-BLJ+9PEZPfNMP3IuG9ihFkSxG9Lt/Pp5eXPYkDlcbug=";
 
   ldflags = [
     "-s"
     "-w"
-    "-X=github.com/sacloud/usacloud/pkg/version.Revision=${src.rev}"
+    "-X=github.com/sacloud/usacloud/pkg/version.Revision=${finalAttrs.src.rev}"
   ];
 
   doInstallCheck = true;
-  nativeInstallCheckInputs = [ versionCheckHook ];
-  versionCheckProgramArg = "--version";
+  nativeInstallCheckInputs = [
+    versionCheckHook
+    writableTmpDirAsHomeHook
+  ];
+  versionCheckKeepEnvironment = [ "HOME" ];
 
   passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "CLI client for the Sakura Cloud";
     homepage = "https://github.com/sacloud/usacloud";
-    changelog = "https://github.com/sacloud/usacloud/releases/tag/v${version}";
+    changelog = "https://github.com/sacloud/usacloud/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [ natsukium ];
     mainProgram = "usacloud";
   };
-}
+})

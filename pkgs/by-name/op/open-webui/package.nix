@@ -2,35 +2,37 @@
   lib,
   buildNpmPackage,
   fetchFromGitHub,
-  python312,
+  python3Packages,
   nixosTests,
   fetchurl,
+  ffmpeg-headless,
 }:
 let
   pname = "open-webui";
-  version = "0.6.2";
+  version = "0.9.6";
 
   src = fetchFromGitHub {
     owner = "open-webui";
     repo = "open-webui";
     tag = "v${version}";
-    hash = "sha256-E9bZr2HG1TSZQDW4KBd3rV8AoQ3lWH8tfTsCY7XAwy0=";
+    hash = "sha256-0d9GfBQY6YtsUbHeO6NTFPFHV6WE51D4fq+NfsM7J5g=";
   };
 
   frontend = buildNpmPackage rec {
-    inherit pname version src;
+    pname = "open-webui-frontend";
+    inherit version src;
 
     # the backend for run-on-client-browser python execution
     # must match lock file in open-webui
-    # TODO: should we automate this?
-    # TODO: with JQ? "jq -r '.packages["node_modules/pyodide"].version' package-lock.json"
-    pyodideVersion = "0.27.3";
+    pyodideVersion = "0.28.3";
     pyodide = fetchurl {
-      hash = "sha256-SeK3RKqqxxLLf9DN5xXuPw6ZPblE6OX9VRXMzdrmTV4=";
+      hash = "sha256-fcqubT8VmGoJ8PnmxHE6DA8kv/DJDHToWoFyPxvGCUA=";
       url = "https://github.com/pyodide/pyodide/releases/download/${pyodideVersion}/pyodide-${pyodideVersion}.tar.bz2";
     };
 
-    npmDepsHash = "sha256-PNuZ1PsUtNfwI24zfzvnUzkvBznZQHLUG12E+p1bL68=";
+    npmDepsHash = "sha256-NhDsqfP95RAbSarM07OSII8vbPYWScRMxtWt+gRQ/4c=";
+
+    npmFlags = [ "--force" ];
 
     # Disabling `pyodide:fetch` as it downloads packages during `buildPhase`
     # Until this is solved, running python packages from the browser will not work.
@@ -38,6 +40,10 @@ let
       substituteInPlace package.json \
         --replace-fail "npm run pyodide:fetch && vite build" "vite build"
     '';
+
+    propagatedBuildInputs = [
+      ffmpeg-headless
+    ];
 
     env.CYPRESS_INSTALL_BINARY = "0"; # disallow cypress from downloading binaries in sandbox
     env.ONNXRUNTIME_NODE_INSTALL_CUDA = "skip";
@@ -57,11 +63,11 @@ let
     '';
   };
 in
-python312.pkgs.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   inherit pname version src;
   pyproject = true;
 
-  build-system = with python312.pkgs; [ hatchling ];
+  build-system = with python3Packages; [ hatchling ];
 
   # Not force-including the frontend build directory as frontend is managed by the `frontend` derivation above.
   postPatch = ''
@@ -73,19 +79,14 @@ python312.pkgs.buildPythonApplication rec {
 
   pythonRelaxDeps = true;
 
-  pythonRemoveDeps = [
-    "docker"
-    "pytest"
-    "pytest-docker"
-  ];
-
   dependencies =
-    with python312.pkgs;
+    with python3Packages;
     [
       accelerate
       aiocache
       aiofiles
       aiohttp
+      aiosqlite
       alembic
       anthropic
       apscheduler
@@ -100,77 +101,77 @@ python312.pkgs.buildPythonApplication rec {
       beautifulsoup4
       black
       boto3
+      brotli
+      brotlicffi
+      chardet
       chromadb
-      colbert-ai
+      cryptography
+      datasets_3
+      ddgs
       docx2txt
-      duckduckgo-search
       einops
-      elasticsearch
-      extract-msg
       fake-useragent
       fastapi
       faster-whisper
-      firecrawl-py
       fpdf2
       ftfy
-      gcp-storage-emulator
       google-api-python-client
       google-auth-httplib2
       google-auth-oauthlib
       google-cloud-storage
-      google-generativeai
+      google-genai
       googleapis-common-protos
-      iso-639
+      httpx
+      itsdangerous
       langchain
+      langchain-classic
       langchain-community
-      langdetect
-      langfuse
+      langchain-text-splitters
       ldap3
       loguru
       markdown
-      moto
+      mcp
+      msoffcrypto-tool
       nltk
       onnxruntime
       openai
       opencv-python-headless
-      openpyxl
-      opensearch-py
       opentelemetry-api
-      opentelemetry-sdk
       opentelemetry-exporter-otlp
       opentelemetry-instrumentation
+      opentelemetry-instrumentation-aiohttp-client
       opentelemetry-instrumentation-fastapi
-      opentelemetry-instrumentation-sqlalchemy
+      opentelemetry-instrumentation-httpx
+      opentelemetry-instrumentation-logging
       opentelemetry-instrumentation-redis
       opentelemetry-instrumentation-requests
-      opentelemetry-instrumentation-logging
-      opentelemetry-instrumentation-httpx
-      opentelemetry-instrumentation-aiohttp-client
+      opentelemetry-instrumentation-sqlalchemy
+      opentelemetry-sdk
+      openpyxl
+      opensearch-py
       pandas
-      passlib
       peewee
       peewee-migrate
-      pgvector
       pillow
-      playwright
       psutil
-      psycopg2-binary
+      psycopg
+      pyarrow
+      pycrdt
       pydub
       pyjwt
       pymdown-extensions
-      pymilvus
-      pymongo
       pymysql
       pypandoc
       pypdf
       python-dotenv
       python-jose
+      python-mimeparse
       python-multipart
       python-pptx
       python-socketio
       pytube
+      pytz
       pyxlsb
-      qdrant-client
       rank-bm25
       rapidocr-onnxruntime
       redis
@@ -179,15 +180,54 @@ python312.pkgs.buildPythonApplication rec {
       sentence-transformers
       sentencepiece
       soundfile
+      sqlalchemy
+      starlette-compress
+      starsessions
       tiktoken
       transformers
-      unstructured
       uvicorn
       validators
       xlrd
       youtube-transcript-api
     ]
+    ++ psycopg.optional-dependencies.c
+    ++ pyjwt.optional-dependencies.crypto
+    ++ sqlalchemy.optional-dependencies.asyncio
+    ++ starsessions.optional-dependencies.redis;
+
+  optional-dependencies = with python3Packages; {
+    postgres = [
+      pgvector
+      psycopg2-binary
+    ];
+
+    mariadb = [
+      mariadb
+    ];
+
+    unstructured = [
+      unstructured
+    ];
+
+    all = [
+      azure-search-documents
+      colbert-ai
+      elasticsearch
+      gcp-storage-emulator
+      moto
+      oracledb
+      pinecone-client
+      playwright
+      pymilvus
+      pymongo
+      qdrant-client
+      weaviate-client
+    ]
+    ++ finalAttrs.passthru.optional-dependencies.mariadb
+    ++ finalAttrs.passthru.optional-dependencies.postgres
+    ++ finalAttrs.passthru.optional-dependencies.unstructured
     ++ moto.optional-dependencies.s3;
+  };
 
   pythonImportsCheck = [ "open_webui" ];
 
@@ -205,11 +245,27 @@ python312.pkgs.buildPythonApplication rec {
     changelog = "https://github.com/open-webui/open-webui/blob/${src.tag}/CHANGELOG.md";
     description = "Comprehensive suite for LLMs with a user-friendly WebUI";
     homepage = "https://github.com/open-webui/open-webui";
-    license = lib.licenses.mit;
+    # License history is complex: originally MIT, then a potentially problematic
+    # relicensing to a modified BSD-3 clause occurred around v0.5.5/v0.6.6.
+    # Due to these concerns and non-standard terms, it's treated as custom non-free.
+    license = {
+      fullName = "Open WebUI License";
+      url = "https://github.com/open-webui/open-webui/blob/0cef844168e97b70de2abee4c076cc30ffec6193/LICENSE";
+      # Marked non-free due to concerns over the MIT -> modified BSD-3 relicensing process,
+      # potentially unclear/contradictory statements, and non-standard branding requirements.
+      free = false;
+    };
+    longDescription = ''
+      User-friendly WebUI for LLMs. Note on licensing: Code in Open WebUI prior
+      to version 0.5.5 was MIT licensed. Since version 0.6.6, the project has
+      adopted a modified BSD-3-Clause license that includes branding requirements
+      and whose relicensing process from MIT has raised concerns within the community.
+      Nixpkgs treats this custom license as non-free due to these factors.
+    '';
     mainProgram = "open-webui";
     maintainers = with lib.maintainers; [
-      drupol
       shivaraj-bh
+      codgician
     ];
   };
-}
+})
